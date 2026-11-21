@@ -15,6 +15,7 @@ Chạy:  python train_kmeans.py            (mặc định K = 200)
 import argparse
 import gzip
 import os
+import sys
 import time
 
 import numpy as np
@@ -50,14 +51,22 @@ def load_labels(path):
 # ----------------------------------------------------------------------------
 # K-means
 # ----------------------------------------------------------------------------
+def array_module(a):
+    """numpy, hoặc cupy nếu mảng a đang nằm trên GPU (chỉ khi cupy đã được import)."""
+    cp = sys.modules.get("cupy")
+    return cp.get_array_module(a) if cp is not None else np
+
+
 def squared_distances(X, C, x_sq=None):
     """Khoảng cách Euclid bình phương giữa mọi điểm X (n,d) và mọi centroid C (k,d).
-    Dùng công thức ||x - c||^2 = ||x||^2 - 2 x.c + ||c||^2 để tính nhanh bằng nhân ma trận."""
+    Dùng công thức ||x - c||^2 = ||x||^2 - 2 x.c + ||c||^2 để tính nhanh bằng nhân ma trận.
+    Chạy được trên cả CPU (numpy) lẫn GPU (cupy)."""
+    xp = array_module(X)
     if x_sq is None:
         x_sq = (X ** 2).sum(axis=1)
     c_sq = (C ** 2).sum(axis=1)
     d = x_sq[:, None] - 2.0 * (X @ C.T) + c_sq[None, :]
-    return np.maximum(d, 0.0)
+    return xp.maximum(d, 0.0)
 
 
 def kmeans_plus_plus(X, k, rng, x_sq):

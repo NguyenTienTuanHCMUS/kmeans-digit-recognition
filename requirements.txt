@@ -1,3 +1,4 @@
 numpy
 pillow
 scikit-learn   # chỉ cần cho train_features.py
+# Tùy chọn, để chạy train_features.py / tune_features.py với --gpu:  pip install "cupy-cuda12x[ctk]"

@@ -28,6 +28,7 @@ def main():
     payload = {
         "k": int(d["centroids"].shape[0]),
         "patch": int(round(d["centroids"].shape[1] ** 0.5)),
+        "pool": int(d["pool"]) if "pool" in d.files else 2,   # lưới gộp pool x pool
         "testAcc": float(d["test_acc"]),
         "centroids": b64(d["centroids"]),   # K x 36: các nét cơ bản (đã làm trắng)
         "zcaMean": b64(d["zca_mean"]),      # 36

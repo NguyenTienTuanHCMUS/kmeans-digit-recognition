@@ -70,17 +70,21 @@ class FeatureModel:
         self.coef, self.intercept = d["coef"], d["intercept"]
         self.test_acc = float(d["test_acc"])
         self.K = len(self.centroids)
+        # mô hình cũ không lưu hai giá trị này: mặc định mảnh 6x6, lưới gộp 2x2
+        self.patch = int(d["patch"]) if "patch" in d.files else P
+        self.pool = int(d["pool"]) if "pool" in d.files else 2
 
     def predict(self, img):
         """Trả về (xác suất 10 chữ số, số vị trí có mực mà mỗi nét là nét gần nhất)."""
-        raw = encode(img.reshape(1, -1), self.centroids, self.zca_mean, self.zca_W)[0]
+        raw = encode(img.reshape(1, -1), self.centroids, self.zca_mean, self.zca_W, p=self.patch, pool=self.pool)[0]
         logits = self.coef @ ((raw - self.mu) / self.sd) + self.intercept
         p = np.exp(logits - logits.max())
         return p / p.sum(), self.stroke_counts(img)
 
     def stroke_counts(self, img):
-        """Chỉ để hiển thị: ở mỗi mảnh 6x6 có mực, nét nào là nét gần nhất."""
-        patches = sliding_window_view(img.reshape(28, 28), (P, P)).reshape(-1, P * P)
+        """Chỉ để hiển thị: ở mỗi mảnh có mực, nét nào là nét gần nhất."""
+        p = self.patch
+        patches = sliding_window_view(img.reshape(28, 28), (p, p)).reshape(-1, p * p)
         patches = patches[patches.var(axis=1) > 0.01]
         if len(patches) == 0:
             return np.zeros(self.K, dtype=int)
@@ -89,9 +93,9 @@ class FeatureModel:
         return np.bincount(nearest, minlength=self.K)
 
     def stroke_image(self, k):
-        """Ảnh 6x6 của nét k, co giãn về 0..1 để hiển thị."""
+        """Ảnh của nét k, co giãn về 0..1 để hiển thị."""
         c = self.centroids[k]
-        return ((c - c.min()) / (c.max() - c.min() + 1e-8)).reshape(P, P)
+        return ((c - c.min()) / (c.max() - c.min() + 1e-8)).reshape(self.patch, self.patch)
 
 
 class DigitApp:
@@ -140,7 +144,7 @@ class DigitApp:
         previews = tk.Frame(right)
         previews.pack(pady=6)
         self.prev_input = self._make_preview(previews, "Ảnh sau chuẩn hóa", 0, GRID)
-        self.prev_stroke = self._make_preview(previews, "Nét được dùng nhiều nhất", 1, P)
+        self.prev_stroke = self._make_preview(previews, "Nét được dùng nhiều nhất", 1, model.patch)
 
         tk.Label(right, text="Xác suất từng chữ số", font=("Segoe UI", 10, "bold")).pack(pady=(10, 2))
         self.prob_list = tk.Label(right, text="", font=("Consolas", 10), justify=tk.LEFT, anchor="w")

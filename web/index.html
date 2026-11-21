@@ -242,11 +242,11 @@
       topStroke: 'Nét dùng nhiều nhất',
       probTitle: 'Xác suất từng chữ số',
       tipLabel: 'Giải thích',
-      tipText: 'Bộ phân loại (hồi quy logistic) đọc mức xuất hiện của từng nét ở 4 góc ảnh rồi cho ra xác suất của mỗi chữ số. Thanh càng dài là càng có khả năng.',
+      tipText: 'Bộ phân loại (hồi quy logistic) đọc mức xuất hiện của từng nét trong {cells} vùng của ảnh (lưới {pool}×{pool}) rồi cho ra xác suất của mỗi chữ số. Thanh càng dài là càng có khả năng.',
       top5: '5 nét được dùng nhiều nhất',
       top5Item: 'nét #{k} · {n} vị trí',
       galleryTitle: 'Từ điển {k} nét mà K-means tìm ra',
-      galleryHow: 'K-means chạy trên 100.000 mảnh 6×6 cắt từ ảnh MNIST, nên mỗi centroid là một nét cơ bản: nét ngang, nét chéo, đường cong, đầu nét... Hình bạn vẽ được mô tả bằng mức xuất hiện của từng nét ở 4 góc ảnh. Ô có viền là 20 nét được dùng nhiều nhất trong hình vẽ (khớp nhất với nhiều vị trí có mực nhất), viền đậm là 5 nét đứng đầu.',
+      galleryHow: 'K-means chạy trên 100.000 mảnh {ps}×{ps} cắt từ ảnh MNIST, nên mỗi centroid là một nét cơ bản: nét ngang, nét chéo, đường cong, đầu nét... Hình bạn vẽ được mô tả bằng mức xuất hiện của từng nét trong {cells} vùng của ảnh (lưới {pool}×{pool}). Ô có viền là 20 nét được dùng nhiều nhất trong hình vẽ (khớp nhất với nhiều vị trí có mực nhất), viền đậm là 5 nét đứng đầu.',
       cellTitle: 'Nét #{c}',
       note: 'Mã nguồn, cách huấn luyện và so sánh các cách dùng K-means: <a href="https://github.com/NguyenTienTuanHCMUS/kmeans-digit-recognition" target="_blank" rel="noopener">github.com/NguyenTienTuanHCMUS/kmeans-digit-recognition</a>.<br>Giao diện dùng các thành phần của <a href="https://github.com/finktheartist/sakuga-vfx" target="_blank" rel="noopener">Sakuga VFX</a> (MIT). Hiệu ứng tự tắt khi máy bật chế độ giảm chuyển động.',
       missing: 'Không tìm thấy model.js. Hãy chạy <code>python export_web.py</code> trước.',
@@ -277,11 +277,11 @@
       topStroke: 'Most used stroke',
       probTitle: 'Probability of each digit',
       tipLabel: 'Explain',
-      tipText: 'A classifier (logistic regression) reads how strongly each stroke appears in the 4 quarters of the image and turns that into a probability for each digit. A longer bar means more likely.',
+      tipText: 'A classifier (logistic regression) reads how strongly each stroke appears in the {cells} regions of the image (a {pool}×{pool} grid) and turns that into a probability for each digit. A longer bar means more likely.',
       top5: '5 most used strokes',
       top5Item: 'stroke #{k} · {n} spots',
       galleryTitle: 'The {k}-stroke dictionary K-means found',
-      galleryHow: 'K-means ran on 100,000 6×6 patches cut from MNIST images, so each centroid is a basic stroke: horizontal, diagonal, curve, stroke end... Your drawing is described by how strongly each stroke appears in the 4 quarters of the image. Outlined tiles are the 20 strokes your drawing uses most (the best match at the most inked spots); bold outlines are the top 5.',
+      galleryHow: 'K-means ran on 100,000 {ps}×{ps} patches cut from MNIST images, so each centroid is a basic stroke: horizontal, diagonal, curve, stroke end... Your drawing is described by how strongly each stroke appears in the {cells} regions of the image (a {pool}×{pool} grid). Outlined tiles are the 20 strokes your drawing uses most (the best match at the most inked spots); bold outlines are the top 5.',
       cellTitle: 'Stroke #{c}',
       note: 'Source code, training steps and a comparison of the ways to use K-means: <a href="https://github.com/NguyenTienTuanHCMUS/kmeans-digit-recognition" target="_blank" rel="noopener">github.com/NguyenTienTuanHCMUS/kmeans-digit-recognition</a>.<br>The interface uses components from <a href="https://github.com/finktheartist/sakuga-vfx" target="_blank" rel="noopener">Sakuga VFX</a> (MIT). Effects switch off when the device has reduced motion turned on.',
       missing: 'model.js not found. Run <code>python export_web.py</code> first.',
@@ -337,12 +337,20 @@
 
   // ---- Giải mã mô hình (các mảng float32 mã hóa base64) ----
   const f32 = s => { const b = Uint8Array.from(atob(s), ch => ch.charCodeAt(0)); return new Float32Array(b.buffer); };
-  const K = M.k, PS = M.patch, PD = PS * PS, G = N - PS + 1, H = Math.ceil(G / 2), F = 4 * K;
+  const K = M.k, PS = M.patch, PD = PS * PS, G = N - PS + 1, POOL = M.pool || 2, F = POOL * POOL * K;
+  // ô gộp của từng hàng/cột, chia G vị trí thành POOL phần giống np.array_split (23 -> 12 + 11 khi POOL = 2)
+  const cellOf = new Uint8Array(G);
+  for (let i = 0, start = 0; i < POOL; i++) {
+    const size = Math.floor(G / POOL) + (i < G % POOL ? 1 : 0);
+    cellOf.fill(i, start, start + size); start += size;
+  }
   const cents = f32(M.centroids), zcaMean = f32(M.zcaMean), zcaW = f32(M.zcaW);
   const featMean = f32(M.featMean), featStd = f32(M.featStd), coef = f32(M.coef), intercept = f32(M.intercept);
   const NORM_EPS = 10 / 255 ** 2;
+  const MV = { k: K, ps: PS, pool: POOL, cells: POOL * POOL };   // các giá trị chèn vào câu chữ
   const cSq = new Float32Array(K);
   for (let k = 0; k < K; k++) { let s = 0; for (let j = 0; j < PD; j++) s += cents[k * PD + j] ** 2; cSq[k] = s; }
+  document.getElementById('pv-stroke').width = document.getElementById('pv-stroke').height = PS;
   // ảnh của từng nét, co giãn về 0..1 để hiển thị
   const strokeImg = Array.from({ length: K }, (_, k) => {
     const c = cents.subarray(k * PD, (k + 1) * PD);
@@ -579,7 +587,7 @@
         for (let j = 0; j < PD; j++) dot += white[j] * cents[off + j];
         zSum += (z[k] = Math.sqrt(Math.max(0, wSq - 2 * dot + cSq[k])));
       }
-      const mu = zSum / K, q = ((r < H ? 0 : 2) + (c < H ? 0 : 1)) * K;
+      const mu = zSum / K, q = (cellOf[r] * POOL + cellOf[c]) * K;
       let nearest = 0;
       for (let k = 0; k < K; k++) {
         const a = mu - z[k]; if (a > 0) feats[q + k] += a;
@@ -692,12 +700,12 @@
     lang = next;
     document.documentElement.lang = lang;
     document.title = t('pageTitle');
-    document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n, { k: K }); });
+    document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n, MV); });
     document.querySelectorAll('[data-i18n-html]').forEach(el => { el.innerHTML = t(el.dataset.i18nHtml); });
     document.querySelectorAll('[data-i18n-attr]').forEach(el => {
       for (const pair of el.dataset.i18nAttr.split(',')) {
         const [attr, key] = pair.split(':');
-        el.setAttribute(attr, t(key));
+        el.setAttribute(attr, t(key, MV));
       }
     });
     document.querySelectorAll('[data-lang]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.lang === lang)));
