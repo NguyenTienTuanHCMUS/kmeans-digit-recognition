@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+
+# Bản giải nén của MNIST (repo chỉ giữ file .gz, chương trình tự đọc được)
+MNIST/raw/*-ubyte
+
+# Cấu hình công cụ cục bộ
+.claude/
+.impeccable/
+.vscode/
+.idea/

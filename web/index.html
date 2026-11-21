@@ -1,0 +1,551 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Nhận diện chữ số K-means</title>
+<style>
+  /* Bảng màu theo Sakuga VFX: giấy trắng, mực tím than, tím lavender, điểm nhấn hồng */
+  :root {
+    --page: #ffffff; --text: #1d1a4a; --mute: #6f6a9e; --line: #dcdaf0; --chip: #f4f3fc;
+    --ink-rgb: 29, 26, 74;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; overflow-x: clip; background: var(--page); }
+  body {
+    margin: 0; color: var(--text); background: var(--page); overflow-x: clip;
+    font: 500 15px/1.45 -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible { outline: 2.5px solid #ff5fa8; outline-offset: 3px; }
+  .display { font: italic 800 28px/1.1 "Avenir Next", "Nunito", -apple-system, "Segoe UI", system-ui, sans-serif; letter-spacing: -.01em; }
+
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 32px 16px 80px; }
+  header h1 { margin: 0; }
+  .lede { max-width: 680px; margin: 8px 0 0; color: var(--mute); }
+  .pills { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 13px;
+    border: 1.5px solid var(--line); border-radius: 999px; font-size: 13px; font-weight: 600; color: var(--mute);
+  }
+  .pill b { color: var(--text); font-weight: 800; }
+
+  .grid { display: grid; grid-template-columns: minmax(0, 540px) minmax(0, 1fr); gap: 18px; margin-top: 26px; }
+  @media (max-width: 920px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+  .card { min-width: 0; border: 1.5px solid var(--line); border-radius: 18px; padding: 16px 18px 20px; }
+  .card h2 { margin: 0; font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .card h2 span { color: var(--mute); font-weight: 500; }
+  .how { margin: 2px 0 0; color: var(--mute); font-size: 13px; }
+
+  /* Bảng vẽ */
+  .board-area { margin-top: 30px; }
+  .board-area sakuga-tabs { margin-left: 14px; }
+  .board-wrap { position: relative; }
+  #board {
+    display: block; width: 100%; aspect-ratio: 1; background: #fff; cursor: crosshair; touch-action: none;
+    border: 3.2px solid var(--text); border-radius: 15px; box-shadow: 6px 7px 0 #b8b3ff;
+  }
+  .empty-hint {
+    position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none;
+    color: var(--mute); font-size: 15px; transition: opacity .2s;
+  }
+  .controls { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 18px 24px; margin-top: 26px; }
+  .field { display: grid; gap: 2px; }
+  .field > span { font-size: 13px; font-weight: 700; }
+  .opt { display: flex; align-items: center; gap: 4px; margin-top: 34px; }
+  .opt sakuga-toggle { margin: -24px -6px -14px -10px; transform: scale(.78); transform-origin: left center; }
+  .opt label { font-size: 14px; font-weight: 600; }
+  .keys { margin: 14px 0 0; color: var(--mute); font-size: 12.5px; }
+  kbd {
+    font: 700 11.5px/1 Consolas, monospace; border: 1.5px solid var(--line); border-bottom-width: 3px;
+    border-radius: 6px; padding: 2px 6px; background: var(--chip); color: var(--text);
+  }
+
+  /* Kết quả */
+  .result-top { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; margin-top: 18px; }
+  .meta { flex: 1; min-width: 200px; }
+  .meta .big { font-size: 22px; }
+  .meta .small { color: var(--mute); font-size: 13.5px; margin-top: 4px; }
+  .compare { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+  .thumb { text-align: center; font-size: 12px; color: var(--mute); font-weight: 600; }
+  .thumb canvas {
+    display: block; width: 80px; height: 80px; image-rendering: pixelated; background: #fff; margin-bottom: 5px;
+    border: 2.5px solid var(--text); border-radius: 12px; box-shadow: 4px 5px 0 #b8b3ff;
+  }
+  .arrow { color: var(--text); font: italic 800 22px/1 "Avenir Next", "Nunito", sans-serif; padding-bottom: 18px; }
+
+  .section { margin-top: 24px; }
+  .section h3 { margin: 0 0 10px; font-size: 13.5px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .section h3 sakuga-tooltip { margin: -12px 0; transform: scale(.8); }  /* bỏ khoảng 60px nó chừa sẵn phía trên */
+  .bars { display: grid; gap: 7px; }
+  .bar-row { display: grid; grid-template-columns: 20px 1fr 48px; align-items: center; gap: 10px; font-size: 13.5px; }
+  .bar-row .d { font: italic 800 16px/1 "Avenir Next", "Nunito", sans-serif; text-align: center; }
+  .bar-track { height: 14px; border-radius: 99px; background: var(--chip); border: 2px solid var(--text); overflow: hidden; }
+  .bar-fill { height: 100%; width: 0; background: #b8b3ff; transition: width .25s cubic-bezier(.3, 1.6, .5, 1); }
+  .bar-row.best .bar-fill { background: #ff5fa8; }
+  .bar-row .v { color: var(--mute); text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .bar-row.best .v { color: var(--text); }
+
+  .top5 { display: flex; gap: 12px; flex-wrap: wrap; }
+  .t5 { text-align: center; font-size: 12px; color: var(--mute); font-weight: 600; }
+  .t5 canvas {
+    display: block; width: 58px; height: 58px; image-rendering: pixelated; background: #fff; margin-bottom: 4px;
+    border: 2px solid var(--line); border-radius: 10px;
+  }
+  .t5:first-child canvas { border: 2.5px solid var(--text); box-shadow: 3px 4px 0 #ff5fa8; }
+  .t5 b { color: var(--text); }
+
+  /* Bộ sưu tập centroid */
+  .gallery { margin-top: 18px; }
+  .grow { display: grid; grid-template-columns: 30px 1fr; gap: 10px; align-items: start; padding: 10px 0; border-top: 1.5px solid var(--line); }
+  .grow .d { font: italic 800 22px/1 "Avenir Next", "Nunito", sans-serif; padding-top: 6px; }
+  .cells { display: flex; flex-wrap: wrap; gap: 5px; }
+  .cells canvas {
+    width: 34px; height: 34px; image-rendering: pixelated; background: #fff;
+    border: 1.5px solid var(--line); border-radius: 7px; transition: transform .15s;
+  }
+  .cells canvas.near { border-color: #8f8df7; border-width: 2px; }
+  .cells canvas.hit { border: 2.5px solid var(--text); box-shadow: 3px 3px 0 #ff5fa8; transform: scale(1.12); }
+  .note { margin: 36px 0 0; color: var(--mute); font-size: 13px; }
+  .note a { color: inherit; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1 class="display">Nhận diện chữ số bằng K&#8209;means</h1>
+    <p class="lede">Vẽ một chữ số lên bảng 28 × 28. Chương trình chuẩn hóa hình vẽ giống ảnh MNIST, rồi tìm centroid gần nhất trong các cluster mà K-means đã học. Nhãn của cluster đó chính là đáp án.</p>
+    <div class="pills" id="pills"></div>
+  </header>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Bảng vẽ <span>28 × 28</span></h2>
+      <p class="how">Giữ chuột (hoặc ngón tay) và vẽ. Nhả ra để chốt đáp án.</p>
+      <div class="board-area">
+        <sakuga-tabs id="tool" label="Công cụ">
+          <option value="draw">Vẽ</option>
+          <option value="erase">Tẩy</option>
+        </sakuga-tabs>
+        <div class="board-wrap">
+          <canvas id="board" width="560" height="560" aria-label="Bảng vẽ chữ số"></canvas>
+          <div class="empty-hint" id="hint">Vẽ một chữ số từ 0 đến 9</div>
+        </div>
+      </div>
+      <div class="controls">
+        <div class="field">
+          <span>Cỡ cọ</span>
+          <sakuga-slider id="brush" min="1" max="2.5" step="0.1" value="1.5" unit="" label="Cỡ cọ"></sakuga-slider>
+        </div>
+        <sakuga-button id="clear">Xóa bảng</sakuga-button>
+      </div>
+      <div class="opt">
+        <sakuga-toggle id="live" label="Nhận diện ngay khi đang vẽ" checked></sakuga-toggle>
+        <label for="live">Nhận diện ngay khi đang vẽ</label>
+      </div>
+      <p class="keys"><kbd>B</kbd> vẽ &nbsp;·&nbsp; <kbd>E</kbd> tẩy &nbsp;·&nbsp; <kbd>C</kbd> xóa &nbsp;·&nbsp; chuột phải cũng là tẩy</p>
+    </section>
+
+    <section class="card">
+      <h2>Kết quả</h2>
+      <div class="result-top">
+        <digit-badge id="badge"></digit-badge>
+        <div class="meta">
+          <div class="big display" id="meta-big">Chưa có hình vẽ</div>
+          <div class="small" id="meta-small">Vẽ xong, nhả chuột ra là có đáp án.</div>
+          <div class="compare">
+            <div class="thumb"><canvas id="pv-input" width="28" height="28"></canvas>Hình của bạn</div>
+            <div class="arrow">→</div>
+            <div class="thumb"><canvas id="pv-centroid" width="28" height="28"></canvas>Centroid gần nhất</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>Khoảng cách tới từng chữ số
+          <sakuga-tooltip label="Giải thích" text="Số bên phải là khoảng cách Euclid từ hình vẽ tới cluster gần nhất của chữ số đó. Thanh càng dài là càng gần."></sakuga-tooltip>
+        </h3>
+        <div class="bars" id="bars"></div>
+      </div>
+
+      <div class="section">
+        <h3>5 cluster gần nhất</h3>
+        <div class="top5" id="top5"></div>
+      </div>
+    </section>
+  </div>
+
+  <section class="card gallery">
+    <h2 id="gallery-title">Các centroid mà K-means tìm ra</h2>
+    <p class="how">Mỗi ô là trung bình của một cluster, tức một "kiểu viết" mà K-means tự phát hiện, xếp theo nhãn đã gán. Ô viền đậm là cluster khớp nhất với hình bạn vẽ. Đưa chuột vào một ô để xem chi tiết.</p>
+    <div id="gallery" style="margin-top:12px"></div>
+  </section>
+
+  <p class="note">Giao diện dùng các thành phần của <a href="https://github.com/finktheartist/sakuga-vfx" target="_blank" rel="noopener">Sakuga VFX</a> (MIT). Hiệu ứng tự tắt khi máy bật chế độ giảm chuyển động.</p>
+</div>
+
+<script src="clusters.js"></script>
+<script src="sakuga/button.js"></script>
+<script src="sakuga/tabs.js"></script>
+<script src="sakuga/slider.js"></script>
+<script src="sakuga/toggle.js"></script>
+<script src="sakuga/tooltip.js"></script>
+<script>
+(() => {
+  const N = 28, D = N * N;
+  const C = window.CLUSTERS, FX = window.SakugaFX;
+  if (!C) {
+    document.body.innerHTML = '<p style="padding:24px">Không tìm thấy clusters.js. Hãy chạy <code>python export_web.py</code> trước.</p>';
+    return;
+  }
+
+  // ---- Ô hiện chữ số dự đoán: một control Sakuga, có lò xo và hiệu ứng va chạm ----
+  class DigitBadge extends FX.Base {
+    static css = `
+      :host { display: inline-block; }
+      .d {
+        width: 128px; height: 128px; display: grid; place-items: center; position: relative;
+        border: var(--sk-bw) solid var(--sk-ink); border-radius: 26px; background: var(--sk-card); box-shadow: var(--sk-sh);
+        font: italic 800 84px/1 "Avenir Next", "Nunito", -apple-system, "Segoe UI", system-ui, sans-serif;
+        color: var(--sk-ink); will-change: transform; user-select: none;
+      }
+      .d.empty { color: var(--sk-soft); }
+      .d.inv { background: var(--sk-ink); color: var(--sk-card); box-shadow: none; }`;
+    render() { return '<div class="d empty" role="status" aria-live="polite">–</div>'; }
+    setup() { this.d = this.$('.d'); this.sq = FX.squashy(this.d, { low: 0.6, wide: 0.3 }); this.back = this.backLayer(); this.seq = 0; }
+    frame(dt) { this.sq.step(dt); }
+    set(text) { this.d.textContent = text; this.d.classList.toggle('empty', text === '–'); }
+    // đáp án mới: ô đảo màu một khung hình, nổ phía sau, ドン! rơi xuống
+    hit(text) {
+      this.set(text);
+      const { sq, d } = this, c = FX.at(d), n = ++this.seq;
+      sq.s.x = 0.55; sq.pop.x = 1.2; sq.tilt.x = -6;
+      d.classList.add('inv'); FX.later(170, () => d.classList.remove('inv'));
+      FX.burst(c.x, c.y, { r: 110, spikes: 17, life: 0.5, layer: this.back });
+      FX.shards(c.x, c.y, { n: 10, speed: 250, size: 8, life: 0.9, arc: 6.28, grav: 300 });
+      for (const [dx, dy] of [[-1, -0.6], [1, -0.9], [-1, 0.8], [1, 0.9]])
+        FX.puff(c.x + dx * (c.w / 2 + 4), c.y + dy * 40, { size: FX.rnd(12, 16), n: 5, vx: dx * 44, vy: dy * 28 - 6, life: FX.rnd(0.7, 1) });
+      FX.sfx('don', c.x + 20, c.y - c.h / 2 - 34, { size: 120, rot: -0.12, life: 1 });
+      FX.ticks(c.x - 70, c.y - 70, { dir: -2.4, n: 2, r: 4, len: 20, life: 0.45 });
+      FX.later(190, () => { if (n === this.seq) { sq.s.x = 1.2; FX.kira(c.x + c.w / 2 - 14, c.y - c.h / 2 + 14, { r: 14, life: 0.8 }); } });
+    }
+  }
+  FX.define('digit-badge', DigitBadge);
+  const badge = document.getElementById('badge');
+
+  // ---- Giải mã centroid ----
+  const raw = Uint8Array.from(atob(C.centroids), ch => ch.charCodeAt(0));
+  const K = C.k;
+  const cents = new Float32Array(K * D);
+  const cSq = new Float32Array(K);
+  for (let i = 0; i < K * D; i++) cents[i] = raw[i] / 255;
+  for (let k = 0; k < K; k++) {
+    let s = 0;
+    for (let j = 0; j < D; j++) { const v = cents[k * D + j]; s += v * v; }
+    cSq[k] = s;
+  }
+  const centroid = k => cents.subarray(k * D, (k + 1) * D);
+
+  document.getElementById('pills').innerHTML =
+    `<span class="pill"><b>${K}</b> cluster</span>` +
+    `<span class="pill"><b>${(C.testAcc * 100).toFixed(2)}%</b> đúng trên tập test</span>` +
+    `<span class="pill"><b>60.000</b> ảnh train</span>`;
+
+  // ---- Vẽ ảnh 28x28: mực trên giấy (giá trị 1 = màu mực) ----
+  const INK = [29, 26, 74];
+  const shade = v => INK.map(c => Math.round(255 + (c - 255) * v));
+  function paintImage(canvas, img) {
+    const ctx = canvas.getContext('2d');
+    const id = ctx.createImageData(N, N);
+    for (let i = 0; i < D; i++) {
+      const [r, g, b] = shade(img ? Math.min(1, Math.max(0, img[i])) : 0);
+      id.data[i * 4] = r; id.data[i * 4 + 1] = g; id.data[i * 4 + 2] = b; id.data[i * 4 + 3] = 255;
+    }
+    ctx.putImageData(id, 0, 0);
+  }
+
+  // ---- Bảng vẽ ----
+  const board = document.getElementById('board');
+  const bctx = board.getContext('2d');
+  const grid = new Float32Array(D);
+  let tool = 'draw', brush = 1.5, live = true, last = null, drawing = false, eraseStroke = false;
+
+  function renderBoard() {
+    const s = board.width / N;
+    bctx.fillStyle = '#fff';
+    bctx.fillRect(0, 0, board.width, board.height);
+    for (let i = 0; i < D; i++) {
+      if (grid[i] <= 0) continue;
+      const [r, g, b] = shade(grid[i]);
+      bctx.fillStyle = `rgb(${r},${g},${b})`;
+      bctx.fillRect((i % N) * s, Math.floor(i / N) * s, s, s);
+    }
+    bctx.strokeStyle = '#ecebf8';
+    bctx.lineWidth = 1;
+    bctx.beginPath();
+    for (let i = 1; i < N; i++) {
+      const p = Math.round(i * s) + .5;
+      bctx.moveTo(p, 0); bctx.lineTo(p, board.height);
+      bctx.moveTo(0, p); bctx.lineTo(board.width, p);
+    }
+    bctx.stroke();
+    document.getElementById('hint').style.opacity = grid.some(v => v > 0) ? 0 : 1;
+  }
+
+  function stamp(y, x, erase) {
+    for (let r = Math.floor(y - brush); r <= Math.floor(y + brush); r++) {
+      for (let c = Math.floor(x - brush); c <= Math.floor(x + brush); c++) {
+        if (r < 0 || r >= N || c < 0 || c >= N) continue;
+        const d = Math.hypot(r + .5 - y, c + .5 - x);
+        const v = Math.min(1, Math.max(0, (brush - d) / (brush - .5)));  // tâm đậm, rìa nhạt
+        if (v <= 0) continue;
+        const i = r * N + c;
+        grid[i] = erase ? Math.max(0, grid[i] - v) : Math.max(grid[i], v);
+      }
+    }
+  }
+
+  function pos(e) {
+    const rect = board.getBoundingClientRect();
+    return [(e.clientY - rect.top) / rect.height * N, (e.clientX - rect.left) / rect.width * N];
+  }
+
+  function strokeTo(p) {
+    const start = last || p;
+    const steps = Math.max(1, Math.ceil(Math.hypot(p[0] - start[0], p[1] - start[1]) / .25));
+    for (let t = 0; t <= steps; t++) {
+      stamp(start[0] + (p[0] - start[0]) * t / steps, start[1] + (p[1] - start[1]) * t / steps, eraseStroke);
+    }
+    last = p;
+    scheduleUpdate();
+  }
+
+  board.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    board.setPointerCapture(e.pointerId);
+    drawing = true; last = null;
+    eraseStroke = tool === 'erase' || e.button === 2;
+    strokeTo(pos(e));
+  });
+  board.addEventListener('pointermove', e => { if (drawing) strokeTo(pos(e)); });
+  const end = () => {
+    if (!drawing) return;
+    drawing = false; last = null;
+    renderBoard();
+    predict(true);   // nhả chuột: chốt đáp án, có hiệu ứng nếu đáp án đổi
+  };
+  board.addEventListener('pointerup', end);
+  board.addEventListener('pointercancel', end);
+  board.addEventListener('contextmenu', e => e.preventDefault());
+
+  let pending = false;
+  function scheduleUpdate() {
+    if (pending) return;
+    pending = true;
+    requestAnimationFrame(() => { pending = false; renderBoard(); if (live) predict(false); });
+  }
+
+  // ---- Các control Sakuga ----
+  const toolEl = document.getElementById('tool');
+  toolEl.addEventListener('change', e => { tool = e.detail.value; });
+  document.getElementById('brush').addEventListener('input', e => { brush = e.currentTarget.valueAsNumber || 1.5; });
+  document.getElementById('live').addEventListener('change', e => { live = e.currentTarget.checked; });
+
+  function clearBoard() {
+    const hadInk = grid.some(v => v > 0);
+    grid.fill(0);
+    renderBoard();
+    predict(false);
+    if (hadInk) {   // khói bay khỏi bảng vừa xóa
+      for (const [fx, fy] of [[.25, .3], [.7, .25], [.35, .75], [.75, .7]]) {
+        const p = FX.at(board, fx, fy);
+        FX.puff(p.x, p.y, { size: FX.rnd(16, 22), n: 6, vx: (fx - .5) * 90, vy: -30, life: FX.rnd(.7, 1) });
+      }
+    }
+  }
+  document.getElementById('clear').addEventListener('click', clearBoard);
+
+  document.addEventListener('keydown', e => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const k = e.key.toLowerCase();
+    if (k === 'c') clearBoard();
+    else if (k === 'e') { toolEl.selected = 1; tool = 'erase'; }
+    else if (k === 'b') { toolEl.selected = 0; tool = 'draw'; }
+  });
+
+  // ---- Chuẩn hóa giống MNIST (cùng cách với digit_app.py) ----
+  // Đổi kích thước bằng bộ lọc tam giác (bilinear có khử răng cưa, như PIL)
+  function resizeWeights(inSize, outSize) {
+    const scale = inSize / outSize, fs = Math.max(scale, 1), out = [];
+    for (let o = 0; o < outSize; o++) {
+      const center = (o + .5) * scale;
+      const lo = Math.max(0, Math.floor(center - fs)), hi = Math.min(inSize, Math.ceil(center + fs));
+      const ws = []; let sum = 0;
+      for (let i = lo; i < hi; i++) { const w = Math.max(0, 1 - Math.abs((i + .5 - center) / fs)); ws.push(w); sum += w; }
+      out.push({ lo, ws: ws.map(w => w / (sum || 1)) });
+    }
+    return out;
+  }
+  function resize(src, sh, sw, dh, dw) {
+    const wx = resizeWeights(sw, dw), wy = resizeWeights(sh, dh);
+    const tmp = new Float32Array(sh * dw), dst = new Float32Array(dh * dw);
+    for (let r = 0; r < sh; r++) for (let c = 0; c < dw; c++) {
+      let s = 0; const { lo, ws } = wx[c];
+      for (let j = 0; j < ws.length; j++) s += ws[j] * src[r * sw + lo + j];
+      tmp[r * dw + c] = s;
+    }
+    for (let c = 0; c < dw; c++) for (let r = 0; r < dh; r++) {
+      let s = 0; const { lo, ws } = wy[r];
+      for (let j = 0; j < ws.length; j++) s += ws[j] * tmp[(lo + j) * dw + c];
+      dst[r * dw + c] = s;
+    }
+    return dst;
+  }
+
+  function preprocess(g) {
+    let y0 = N, y1 = -1, x0 = N, x1 = -1;
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (g[r * N + c] > .05) {
+      y0 = Math.min(y0, r); y1 = Math.max(y1, r); x0 = Math.min(x0, c); x1 = Math.max(x1, c);
+    }
+    if (y1 < 0) return null;
+    const h = y1 - y0 + 1, w = x1 - x0 + 1;
+    const crop = new Float32Array(h * w);
+    for (let r = 0; r < h; r++) for (let c = 0; c < w; c++) crop[r * w + c] = g[(y0 + r) * N + x0 + c];
+
+    // thu vào khung 20x20, giữ tỉ lệ
+    const s = 20 / Math.max(h, w);
+    const nh = Math.max(1, Math.round(h * s)), nw = Math.max(1, Math.round(w * s));
+    const small = resize(crop, h, w, nh, nw);
+
+    // đặt vào giữa, rồi dịch để trọng tâm về (14, 14)
+    const top = Math.floor((N - nh) / 2), left = Math.floor((N - nw) / 2);
+    let tot = 0, cy = 0, cx = 0;
+    for (let r = 0; r < nh; r++) for (let c = 0; c < nw; c++) {
+      const v = small[r * nw + c]; tot += v; cy += (top + r) * v; cx += (left + c) * v;
+    }
+    cy /= tot; cx /= tot;
+    const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+    const dy = clamp(Math.round(N / 2 - cy), -top, N - top - nh);
+    const dx = clamp(Math.round(N / 2 - cx), -left, N - left - nw);
+    const out = new Float32Array(D);
+    for (let r = 0; r < nh; r++) for (let c = 0; c < nw; c++) {
+      out[(top + dy + r) * N + left + dx + c] = Math.min(1, Math.max(0, small[r * nw + c]));
+    }
+    return out;
+  }
+
+  // ---- Nhận diện: centroid gần nhất ----
+  function nearest(x) {
+    let xSq = 0;
+    for (let j = 0; j < D; j++) xSq += x[j] * x[j];
+    const dist = new Float32Array(K);
+    for (let k = 0; k < K; k++) {
+      let dot = 0; const off = k * D;
+      for (let j = 0; j < D; j++) dot += x[j] * cents[off + j];
+      dist[k] = Math.sqrt(Math.max(0, xSq - 2 * dot + cSq[k]));
+    }
+    const order = Array.from({ length: K }, (_, i) => i).sort((a, b) => dist[a] - dist[b]);
+    return { dist, order };
+  }
+  window.kmeansDigit = { preprocess, nearest, labels: C.labels };  // để kiểm thử
+
+  // ---- Giao diện kết quả ----
+  const barsEl = document.getElementById('bars');
+  const barRows = [];
+  for (let d = 0; d < 10; d++) {
+    const row = document.createElement('div');
+    row.className = 'bar-row';
+    row.innerHTML = `<span class="d">${d}</span><div class="bar-track"><div class="bar-fill"></div></div><span class="v">–</span>`;
+    barsEl.appendChild(row);
+    barRows.push(row);
+  }
+
+  const top5El = document.getElementById('top5');
+  const top5 = [];
+  for (let i = 0; i < 5; i++) {
+    const el = document.createElement('div');
+    el.className = 't5';
+    el.innerHTML = '<canvas width="28" height="28"></canvas><span></span>';
+    top5El.appendChild(el);
+    top5.push(el);
+    paintImage(el.querySelector('canvas'), null);
+  }
+
+  // bộ sưu tập centroid, nhóm theo nhãn, cluster lớn đứng trước
+  const gallery = document.getElementById('gallery');
+  const galleryCells = new Array(K);
+  document.getElementById('gallery-title').textContent = `${K} centroid mà K-means tìm ra`;
+  for (let d = 0; d < 10; d++) {
+    const ids = [];
+    for (let k = 0; k < K; k++) if (C.labels[k] === d) ids.push(k);
+    ids.sort((a, b) => C.sizes[b] - C.sizes[a]);
+    const row = document.createElement('div');
+    row.className = 'grow';
+    row.innerHTML = `<div class="d">${d}</div><div class="cells"></div>`;
+    const cells = row.querySelector('.cells');
+    for (const k of ids) {
+      const cv = document.createElement('canvas');
+      cv.width = cv.height = N;
+      cv.title = `Cluster ${k}: số ${d}, ${C.sizes[k]} ảnh, độ thuần ${(C.purity[k] * 100).toFixed(0)}%`;
+      paintImage(cv, centroid(k));
+      cells.appendChild(cv);
+      galleryCells[k] = cv;
+    }
+    gallery.appendChild(row);
+  }
+
+  let announced = null, marked = [];
+
+  // loud = true khi người dùng vừa nhả chuột: đáp án mới thì nổ hiệu ứng
+  function predict(loud) {
+    const img = preprocess(grid);
+    marked.forEach(cv => cv.classList.remove('hit', 'near'));
+    marked = [];
+    if (!img) {
+      badge.set('–'); announced = null;
+      document.getElementById('meta-big').textContent = 'Chưa có hình vẽ';
+      document.getElementById('meta-small').textContent = 'Vẽ xong, nhả chuột ra là có đáp án.';
+      paintImage(document.getElementById('pv-input'), null);
+      paintImage(document.getElementById('pv-centroid'), null);
+      barRows.forEach(r => { r.classList.remove('best'); r.querySelector('.bar-fill').style.width = '0'; r.querySelector('.v').textContent = '–'; });
+      top5.forEach(el => { paintImage(el.querySelector('canvas'), null); el.querySelector('span').innerHTML = ''; });
+      return;
+    }
+    const { dist, order } = nearest(img);
+    const best = order[0], label = C.labels[best];
+
+    if (loud && label !== announced) { badge.hit(String(label)); announced = label; }
+    else badge.set(String(label));
+
+    document.getElementById('meta-big').textContent = `Đây là số ${label}!`;
+    document.getElementById('meta-small').textContent =
+      `Gần nhất là cluster #${best}, gồm ${C.sizes[best].toLocaleString('vi-VN')} ảnh train, ` +
+      `${(C.purity[best] * 100).toFixed(0)}% trong đó là số ${label}. Khoảng cách ${dist[best].toFixed(2)}.`;
+    paintImage(document.getElementById('pv-input'), img);
+    paintImage(document.getElementById('pv-centroid'), centroid(best));
+
+    // khoảng cách nhỏ nhất tới cluster của từng chữ số
+    const minD = new Array(10).fill(Infinity);
+    for (let k = 0; k < K; k++) minD[C.labels[k]] = Math.min(minD[C.labels[k]], dist[k]);
+    const dmin = Math.min(...minD);
+    barRows.forEach((row, d) => {
+      const has = isFinite(minD[d]);
+      row.classList.toggle('best', d === label);
+      row.querySelector('.bar-fill').style.width = has ? (Math.exp(-(minD[d] - dmin) / 1.2) * 100).toFixed(1) + '%' : '0';
+      row.querySelector('.v').textContent = has ? minD[d].toFixed(2) : '–';
+    });
+
+    order.slice(0, 5).forEach((k, i) => {
+      paintImage(top5[i].querySelector('canvas'), centroid(k));
+      top5[i].querySelector('span').innerHTML = `số <b>${C.labels[k]}</b> · ${dist[k].toFixed(2)}`;
+      galleryCells[k].classList.add(i === 0 ? 'hit' : 'near');
+      marked.push(galleryCells[k]);
+    });
+  }
+
+  renderBoard();
+  predict(false);
+})();
+</script>
+</body>
+</html>
