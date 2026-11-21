@@ -1,2 +1,3 @@
 numpy
 pillow
+scikit-learn   # chỉ cần cho train_features.py

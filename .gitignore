@@ -9,3 +9,8 @@ MNIST/raw/*-ubyte
 .impeccable/
 .vscode/
 .idea/
+
+# Kết quả thí nghiệm của train_features.py: chỉ giữ mô hình 400 nét mà hai giao diện dùng
+features_k*.npz
+!features_k400.npz
+dictionary_k*.png

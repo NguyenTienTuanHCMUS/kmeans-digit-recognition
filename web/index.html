@@ -112,6 +112,7 @@
     width: 34px; height: 34px; image-rendering: pixelated; background: #fff;
     border: 1.5px solid var(--line); border-radius: 7px; transition: transform .15s;
   }
+  .cells canvas.on { border-color: #d9d6fb; border-width: 2px; }
   .cells canvas.near { border-color: #8f8df7; border-width: 2px; }
   .cells canvas.hit { border: 2.5px solid var(--text); box-shadow: 3px 3px 0 #ff5fa8; transform: scale(1.12); }
   .note { margin: 36px 0 0; color: var(--mute); font-size: 13px; }
@@ -122,7 +123,7 @@
 <div class="wrap">
   <header>
     <h1 class="display" data-i18n="title">Nhận diện chữ số bằng K&#8209;means</h1>
-    <p class="lede" data-i18n="lede">Vẽ một chữ số lên bảng 28 × 28. Chương trình chuẩn hóa hình vẽ giống ảnh MNIST, rồi tìm centroid gần nhất trong các cluster mà K-means đã học. Nhãn của cluster đó chính là đáp án.</p>
+    <p class="lede" data-i18n="lede">Vẽ một chữ số lên bảng 28 × 28. K-means đã học một từ điển gồm các nét cơ bản từ ảnh MNIST. Hình vẽ của bạn được mô tả bằng các nét đó, rồi một bộ phân loại đọc mô tả này để đoán chữ số.</p>
     <div class="pills" id="pills"></div>
     <p class="links">
       <a class="pill" href="https://github.com/NguyenTienTuanHCMUS/kmeans-digit-recognition" target="_blank" rel="noopener">
@@ -174,20 +175,20 @@
           <div class="compare">
             <div class="thumb"><canvas id="pv-input" width="28" height="28"></canvas><span data-i18n="yours">Hình của bạn</span></div>
             <div class="arrow">→</div>
-            <div class="thumb"><canvas id="pv-centroid" width="28" height="28"></canvas><span data-i18n="nearest">Centroid gần nhất</span></div>
+            <div class="thumb"><canvas id="pv-stroke" width="6" height="6"></canvas><span data-i18n="topStroke">Nét dùng nhiều nhất</span></div>
           </div>
         </div>
       </div>
 
       <div class="section">
-        <h3><span data-i18n="distTitle">Khoảng cách tới từng chữ số</span>
+        <h3><span data-i18n="probTitle">Xác suất từng chữ số</span>
           <sakuga-tooltip data-i18n-attr="label:tipLabel,text:tipText" label="Giải thích" text="Số bên phải là khoảng cách Euclid từ hình vẽ tới cluster gần nhất của chữ số đó. Thanh càng dài là càng gần."></sakuga-tooltip>
         </h3>
         <div class="bars" id="bars"></div>
       </div>
 
       <div class="section">
-        <h3 data-i18n="top5">5 cluster gần nhất</h3>
+        <h3 data-i18n="top5">5 nét được dùng nhiều nhất</h3>
         <div class="top5" id="top5"></div>
       </div>
     </section>
@@ -196,13 +197,13 @@
   <section class="card gallery">
     <h2 id="gallery-title" data-i18n="galleryTitle">Các centroid mà K-means tìm ra</h2>
     <p class="how" data-i18n="galleryHow">Mỗi ô là trung bình của một cluster, tức một "kiểu viết" mà K-means tự phát hiện, xếp theo nhãn đã gán. Ô viền đậm là cluster khớp nhất với hình bạn vẽ. Đưa chuột vào một ô để xem chi tiết.</p>
-    <div id="gallery" style="margin-top:12px"></div>
+    <div id="gallery" class="cells" style="margin-top:14px"></div>
   </section>
 
   <p class="note" data-i18n-html="note">Mã nguồn, cách huấn luyện và bảng so sánh số cluster với độ chính xác: <a href="https://github.com/NguyenTienTuanHCMUS/kmeans-digit-recognition" target="_blank" rel="noopener">github.com/NguyenTienTuanHCMUS/kmeans-digit-recognition</a>.<br>Giao diện dùng các thành phần của <a href="https://github.com/finktheartist/sakuga-vfx" target="_blank" rel="noopener">Sakuga VFX</a> (MIT). Hiệu ứng tự tắt khi máy bật chế độ giảm chuyển động.</p>
 </div>
 
-<script src="clusters.js"></script>
+<script src="model.js"></script>
 <script src="sakuga/button.js"></script>
 <script src="sakuga/tabs.js"></script>
 <script src="sakuga/slider.js"></script>
@@ -211,16 +212,16 @@
 <script>
 (() => {
   const N = 28, D = N * N;
-  const C = window.CLUSTERS, FX = window.SakugaFX;
+  const M = window.MODEL, FX = window.SakugaFX;
 
   // ---- Hai ngôn ngữ: tiếng Việt và tiếng Anh ----
   const STR = {
     vi: {
       pageTitle: 'Nhận diện chữ số K-means',
       title: 'Nhận diện chữ số bằng K‑means',
-      lede: 'Vẽ một chữ số lên bảng 28 × 28. Chương trình chuẩn hóa hình vẽ giống ảnh MNIST, rồi tìm centroid gần nhất trong các cluster mà K-means đã học. Nhãn của cluster đó chính là đáp án.',
+      lede: 'Vẽ một chữ số lên bảng 28 × 28. K-means đã học một từ điển gồm các nét cơ bản từ ảnh MNIST. Hình vẽ của bạn được mô tả bằng các nét đó, rồi một bộ phân loại đọc mô tả này để đoán chữ số.',
       github: 'Mã nguồn trên GitHub',
-      clustersPill: '<b>{k}</b> cluster',
+      strokesPill: '<b>{k}</b> nét cơ bản',
       accPill: '<b>{acc}%</b> đúng trên tập test',
       trainPill: '<b>60.000</b> ảnh train',
       boardTitle: 'Bảng vẽ <span>28 × 28</span>',
@@ -236,26 +237,26 @@
       emptyBig: 'Chưa có hình vẽ',
       emptySmall: 'Vẽ xong, nhả chuột ra là có đáp án.',
       itIs: 'Đây là số {d}!',
-      detail: 'Gần nhất là cluster #{c}, gồm {n} ảnh train, {p}% trong đó là số {d}. Khoảng cách {dist}.',
+      detail: 'Chắc chắn {p}%. Khả năng cao thứ hai là số {d2} ({p2}%).',
       yours: 'Hình của bạn',
-      nearest: 'Centroid gần nhất',
-      distTitle: 'Khoảng cách tới từng chữ số',
+      topStroke: 'Nét dùng nhiều nhất',
+      probTitle: 'Xác suất từng chữ số',
       tipLabel: 'Giải thích',
-      tipText: 'Số bên phải là khoảng cách Euclid từ hình vẽ tới cluster gần nhất của chữ số đó. Thanh càng dài là càng gần.',
-      top5: '5 cluster gần nhất',
-      top5Item: 'số <b>{d}</b> · {dist}',
-      galleryTitle: '{k} centroid mà K-means tìm ra',
-      galleryHow: 'Mỗi ô là trung bình của một cluster, tức một "kiểu viết" mà K-means tự phát hiện, xếp theo nhãn đã gán. Ô viền đậm là cluster khớp nhất với hình bạn vẽ. Đưa chuột vào một ô để xem chi tiết.',
-      cellTitle: 'Cluster {c}: số {d}, {n} ảnh, độ thuần {p}%',
-      note: 'Mã nguồn, cách huấn luyện và bảng so sánh số cluster với độ chính xác: <a href="https://github.com/NguyenTienTuanHCMUS/kmeans-digit-recognition" target="_blank" rel="noopener">github.com/NguyenTienTuanHCMUS/kmeans-digit-recognition</a>.<br>Giao diện dùng các thành phần của <a href="https://github.com/finktheartist/sakuga-vfx" target="_blank" rel="noopener">Sakuga VFX</a> (MIT). Hiệu ứng tự tắt khi máy bật chế độ giảm chuyển động.',
-      missing: 'Không tìm thấy clusters.js. Hãy chạy <code>python export_web.py</code> trước.',
+      tipText: 'Bộ phân loại (hồi quy logistic) đọc mức xuất hiện của từng nét ở 4 góc ảnh rồi cho ra xác suất của mỗi chữ số. Thanh càng dài là càng có khả năng.',
+      top5: '5 nét được dùng nhiều nhất',
+      top5Item: 'nét #{k} · {n} vị trí',
+      galleryTitle: 'Từ điển {k} nét mà K-means tìm ra',
+      galleryHow: 'K-means chạy trên 100.000 mảnh 6×6 cắt từ ảnh MNIST, nên mỗi centroid là một nét cơ bản: nét ngang, nét chéo, đường cong, đầu nét... Hình bạn vẽ được mô tả bằng mức xuất hiện của từng nét ở 4 góc ảnh. Ô có viền là 20 nét được dùng nhiều nhất trong hình vẽ (khớp nhất với nhiều vị trí có mực nhất), viền đậm là 5 nét đứng đầu.',
+      cellTitle: 'Nét #{c}',
+      note: 'Mã nguồn, cách huấn luyện và so sánh các cách dùng K-means: <a href="https://github.com/NguyenTienTuanHCMUS/kmeans-digit-recognition" target="_blank" rel="noopener">github.com/NguyenTienTuanHCMUS/kmeans-digit-recognition</a>.<br>Giao diện dùng các thành phần của <a href="https://github.com/finktheartist/sakuga-vfx" target="_blank" rel="noopener">Sakuga VFX</a> (MIT). Hiệu ứng tự tắt khi máy bật chế độ giảm chuyển động.',
+      missing: 'Không tìm thấy model.js. Hãy chạy <code>python export_web.py</code> trước.',
     },
     en: {
       pageTitle: 'K-means Digit Recognition',
       title: 'Handwritten digit recognition with K‑means',
-      lede: 'Draw a digit on the 28 × 28 board. The page normalizes your drawing the way MNIST images were made, then finds the nearest centroid among the clusters K-means learned. That cluster\'s label is the answer.',
+      lede: 'Draw a digit on the 28 × 28 board. K-means learned a dictionary of basic strokes from MNIST images. Your drawing is described in terms of those strokes, and a classifier reads that description to guess the digit.',
       github: 'Source on GitHub',
-      clustersPill: '<b>{k}</b> clusters',
+      strokesPill: '<b>{k}</b> basic strokes',
       accPill: '<b>{acc}%</b> correct on the test set',
       trainPill: '<b>60,000</b> training images',
       boardTitle: 'Drawing board <span>28 × 28</span>',
@@ -271,19 +272,19 @@
       emptyBig: 'Nothing drawn yet',
       emptySmall: 'Finish drawing and let go to get the answer.',
       itIs: 'It\'s a {d}!',
-      detail: 'Nearest is cluster #{c}, made of {n} training images, {p}% of them a {d}. Distance {dist}.',
+      detail: 'Confidence {p}%. Runner-up: {d2} ({p2}%).',
       yours: 'Your drawing',
-      nearest: 'Nearest centroid',
-      distTitle: 'Distance to each digit',
+      topStroke: 'Most used stroke',
+      probTitle: 'Probability of each digit',
       tipLabel: 'Explain',
-      tipText: 'The number on the right is the Euclidean distance from your drawing to that digit\'s nearest cluster. A longer bar means closer.',
-      top5: '5 nearest clusters',
-      top5Item: 'digit <b>{d}</b> · {dist}',
-      galleryTitle: 'The {k} centroids K-means found',
-      galleryHow: 'Each tile is the average of one cluster, a "writing style" K-means discovered on its own, grouped by the label it was given. The tile with the bold border is the cluster closest to your drawing. Hover a tile for details.',
-      cellTitle: 'Cluster {c}: digit {d}, {n} images, {p}% pure',
-      note: 'Source code, training steps and the cluster count vs. accuracy comparison: <a href="https://github.com/NguyenTienTuanHCMUS/kmeans-digit-recognition" target="_blank" rel="noopener">github.com/NguyenTienTuanHCMUS/kmeans-digit-recognition</a>.<br>The interface uses components from <a href="https://github.com/finktheartist/sakuga-vfx" target="_blank" rel="noopener">Sakuga VFX</a> (MIT). Effects switch off when the device has reduced motion turned on.',
-      missing: 'clusters.js not found. Run <code>python export_web.py</code> first.',
+      tipText: 'A classifier (logistic regression) reads how strongly each stroke appears in the 4 quarters of the image and turns that into a probability for each digit. A longer bar means more likely.',
+      top5: '5 most used strokes',
+      top5Item: 'stroke #{k} · {n} spots',
+      galleryTitle: 'The {k}-stroke dictionary K-means found',
+      galleryHow: 'K-means ran on 100,000 6×6 patches cut from MNIST images, so each centroid is a basic stroke: horizontal, diagonal, curve, stroke end... Your drawing is described by how strongly each stroke appears in the 4 quarters of the image. Outlined tiles are the 20 strokes your drawing uses most (the best match at the most inked spots); bold outlines are the top 5.',
+      cellTitle: 'Stroke #{c}',
+      note: 'Source code, training steps and a comparison of the ways to use K-means: <a href="https://github.com/NguyenTienTuanHCMUS/kmeans-digit-recognition" target="_blank" rel="noopener">github.com/NguyenTienTuanHCMUS/kmeans-digit-recognition</a>.<br>The interface uses components from <a href="https://github.com/finktheartist/sakuga-vfx" target="_blank" rel="noopener">Sakuga VFX</a> (MIT). Effects switch off when the device has reduced motion turned on.',
+      missing: 'model.js not found. Run <code>python export_web.py</code> first.',
     },
   };
   // Thứ tự ưu tiên: ?lang= trên URL, lựa chọn đã lưu, rồi ngôn ngữ của trình duyệt
@@ -294,9 +295,8 @@
     return (navigator.language || '').toLowerCase().startsWith('vi') ? 'vi' : 'en';
   })();
   const t = (key, vars = {}) => STR[lang][key].replace(/\{(\w+)\}/g, (_, v) => vars[v]);
-  const num = n => n.toLocaleString(lang === 'vi' ? 'vi-VN' : 'en-US');
 
-  if (!C) {
+  if (!M) {
     document.body.innerHTML = `<p style="padding:24px">${t('missing')}</p>`;
     return;
   }
@@ -335,33 +335,36 @@
   FX.define('digit-badge', DigitBadge);
   const badge = document.getElementById('badge');
 
-  // ---- Giải mã centroid ----
-  const raw = Uint8Array.from(atob(C.centroids), ch => ch.charCodeAt(0));
-  const K = C.k;
-  const cents = new Float32Array(K * D);
+  // ---- Giải mã mô hình (các mảng float32 mã hóa base64) ----
+  const f32 = s => { const b = Uint8Array.from(atob(s), ch => ch.charCodeAt(0)); return new Float32Array(b.buffer); };
+  const K = M.k, PS = M.patch, PD = PS * PS, G = N - PS + 1, H = Math.ceil(G / 2), F = 4 * K;
+  const cents = f32(M.centroids), zcaMean = f32(M.zcaMean), zcaW = f32(M.zcaW);
+  const featMean = f32(M.featMean), featStd = f32(M.featStd), coef = f32(M.coef), intercept = f32(M.intercept);
+  const NORM_EPS = 10 / 255 ** 2;
   const cSq = new Float32Array(K);
-  for (let i = 0; i < K * D; i++) cents[i] = raw[i] / 255;
-  for (let k = 0; k < K; k++) {
-    let s = 0;
-    for (let j = 0; j < D; j++) { const v = cents[k * D + j]; s += v * v; }
-    cSq[k] = s;
-  }
-  const centroid = k => cents.subarray(k * D, (k + 1) * D);
+  for (let k = 0; k < K; k++) { let s = 0; for (let j = 0; j < PD; j++) s += cents[k * PD + j] ** 2; cSq[k] = s; }
+  // ảnh của từng nét, co giãn về 0..1 để hiển thị
+  const strokeImg = Array.from({ length: K }, (_, k) => {
+    const c = cents.subarray(k * PD, (k + 1) * PD);
+    let lo = Infinity, hi = -Infinity;
+    for (const v of c) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+    return Float32Array.from(c, v => (v - lo) / (hi - lo + 1e-8));
+  });
 
   const renderPills = () => {
     document.getElementById('pills').innerHTML =
-      `<span class="pill">${t('clustersPill', { k: K })}</span>` +
-      `<span class="pill">${t('accPill', { acc: (C.testAcc * 100).toFixed(2) })}</span>` +
+      `<span class="pill">${t('strokesPill', { k: K })}</span>` +
+      `<span class="pill">${t('accPill', { acc: (M.testAcc * 100).toFixed(2) })}</span>` +
       `<span class="pill">${t('trainPill')}</span>`;
   };
 
-  // ---- Vẽ ảnh 28x28: mực trên giấy (giá trị 1 = màu mực) ----
+  // ---- Vẽ ảnh n x n: mực trên giấy (giá trị 1 = màu mực) ----
   const INK = [29, 26, 74];
   const shade = v => INK.map(c => Math.round(255 + (c - 255) * v));
-  function paintImage(canvas, img) {
+  function paintImage(canvas, img, n = N) {
     const ctx = canvas.getContext('2d');
-    const id = ctx.createImageData(N, N);
-    for (let i = 0; i < D; i++) {
+    const id = ctx.createImageData(n, n);
+    for (let i = 0; i < n * n; i++) {
       const [r, g, b] = shade(img ? Math.min(1, Math.max(0, img[i])) : 0);
       id.data[i * 4] = r; id.data[i * 4 + 1] = g; id.data[i * 4 + 2] = b; id.data[i * 4 + 3] = 255;
     }
@@ -417,8 +420,8 @@
   function strokeTo(p) {
     const start = last || p;
     const steps = Math.max(1, Math.ceil(Math.hypot(p[0] - start[0], p[1] - start[1]) / .25));
-    for (let t = 0; t <= steps; t++) {
-      stamp(start[0] + (p[0] - start[0]) * t / steps, start[1] + (p[1] - start[1]) * t / steps, eraseStroke);
+    for (let i = 0; i <= steps; i++) {
+      stamp(start[0] + (p[0] - start[0]) * i / steps, start[1] + (p[1] - start[1]) * i / steps, eraseStroke);
     }
     last = p;
     scheduleUpdate();
@@ -548,20 +551,59 @@
     return out;
   }
 
-  // ---- Nhận diện: centroid gần nhất ----
-  function nearest(x) {
-    let xSq = 0;
-    for (let j = 0; j < D; j++) xSq += x[j] * x[j];
-    const dist = new Float32Array(K);
-    for (let k = 0; k < K; k++) {
-      let dot = 0; const off = k * D;
-      for (let j = 0; j < D; j++) dot += x[j] * cents[off + j];
-      dist[k] = Math.sqrt(Math.max(0, xSq - 2 * dot + cSq[k]));
+  // ---- Mô tả ảnh bằng từ điển nét (giống encode() trong train_features.py) ----
+  const patch = new Float32Array(PD), white = new Float32Array(PD), z = new Float32Array(K);
+  // counts[k] (chỉ để hiển thị): số vị trí có mực mà nét k là nét gần nhất
+  function encode(img) {
+    const feats = new Float32Array(F), counts = new Uint16Array(K);
+    for (let r = 0; r < G; r++) for (let c = 0; c < G; c++) {
+      // cắt mảnh 6x6, trừ trung bình, chia độ lệch chuẩn
+      let mean = 0;
+      for (let i = 0; i < PS; i++) for (let j = 0; j < PS; j++) mean += (patch[i * PS + j] = img[(r + i) * N + c + j]);
+      mean /= PD;
+      let v = 0;
+      for (let i = 0; i < PD; i++) v += (patch[i] - mean) ** 2;
+      const sd = Math.sqrt(v / PD + NORM_EPS);
+      for (let i = 0; i < PD; i++) patch[i] = (patch[i] - mean) / sd - zcaMean[i];
+      // làm trắng (ZCA)
+      let wSq = 0;
+      for (let j = 0; j < PD; j++) {
+        let s = 0;
+        for (let i = 0; i < PD; i++) s += patch[i] * zcaW[i * PD + j];
+        white[j] = s; wSq += s * s;
+      }
+      // khoảng cách tới từng nét, rồi mã hóa "tam giác": max(0, trung bình - khoảng cách)
+      let zSum = 0;
+      for (let k = 0; k < K; k++) {
+        let dot = 0; const off = k * PD;
+        for (let j = 0; j < PD; j++) dot += white[j] * cents[off + j];
+        zSum += (z[k] = Math.sqrt(Math.max(0, wSq - 2 * dot + cSq[k])));
+      }
+      const mu = zSum / K, q = ((r < H ? 0 : 2) + (c < H ? 0 : 1)) * K;
+      let nearest = 0;
+      for (let k = 0; k < K; k++) {
+        const a = mu - z[k]; if (a > 0) feats[q + k] += a;
+        if (z[k] < z[nearest]) nearest = k;
+      }
+      if (v / PD > 0.01) counts[nearest]++;   // bỏ qua mảnh gần như trống
     }
-    const order = Array.from({ length: K }, (_, i) => i).sort((a, b) => dist[a] - dist[b]);
-    return { dist, order };
+    return { feats, counts };
   }
-  window.kmeansDigit = { preprocess, nearest, labels: C.labels };  // để kiểm thử
+
+  // ---- Phân loại: hồi quy logistic trên vector đặc trưng ----
+  function classify(img) {
+    const { feats, counts } = encode(img);
+    const logits = new Float64Array(10);
+    for (let d = 0; d < 10; d++) {
+      let s = intercept[d]; const off = d * F;
+      for (let i = 0; i < F; i++) s += coef[off + i] * (feats[i] - featMean[i]) / featStd[i];
+      logits[d] = s;
+    }
+    const top = Math.max(...logits);
+    const e = logits.map(l => Math.exp(l - top)), sum = e.reduce((a, b) => a + b, 0);
+    return { probs: e.map(v => v / sum), strokes: counts };
+  }
+  window.kmeansDigit = { preprocess, encode, classify };  // để kiểm thử
 
   // ---- Giao diện kết quả ----
   const barsEl = document.getElementById('bars');
@@ -579,81 +621,68 @@
   for (let i = 0; i < 5; i++) {
     const el = document.createElement('div');
     el.className = 't5';
-    el.innerHTML = '<canvas width="28" height="28"></canvas><span></span>';
+    el.innerHTML = `<canvas width="${PS}" height="${PS}"></canvas><span></span>`;
     top5El.appendChild(el);
     top5.push(el);
-    paintImage(el.querySelector('canvas'), null);
+    paintImage(el.querySelector('canvas'), null, PS);
   }
 
-  // bộ sưu tập centroid, nhóm theo nhãn, cluster lớn đứng trước
+  // từ điển nét
   const gallery = document.getElementById('gallery');
-  const galleryCells = new Array(K);
-  const cellTitles = () => galleryCells.forEach((cv, k) => {
-    cv.title = t('cellTitle', { c: k, d: C.labels[k], n: num(C.sizes[k]), p: (C.purity[k] * 100).toFixed(0) });
+  const galleryCells = strokeImg.map(img => {
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = PS;
+    paintImage(cv, img, PS);
+    gallery.appendChild(cv);
+    return cv;
   });
-  for (let d = 0; d < 10; d++) {
-    const ids = [];
-    for (let k = 0; k < K; k++) if (C.labels[k] === d) ids.push(k);
-    ids.sort((a, b) => C.sizes[b] - C.sizes[a]);
-    const row = document.createElement('div');
-    row.className = 'grow';
-    row.innerHTML = `<div class="d">${d}</div><div class="cells"></div>`;
-    const cells = row.querySelector('.cells');
-    for (const k of ids) {
-      const cv = document.createElement('canvas');
-      cv.width = cv.height = N;
-      paintImage(cv, centroid(k));
-      cells.appendChild(cv);
-      galleryCells[k] = cv;
-    }
-    gallery.appendChild(row);
-  }
+  const cellTitles = () => galleryCells.forEach((cv, k) => { cv.title = t('cellTitle', { c: k }); });
 
+  const pct = p => (p * 100).toFixed(p >= 0.995 || p < 0.001 ? 0 : 1);
   let announced = null, marked = [];
 
   // loud = true khi người dùng vừa nhả chuột: đáp án mới thì nổ hiệu ứng
   function predict(loud) {
     const img = preprocess(grid);
-    marked.forEach(cv => cv.classList.remove('hit', 'near'));
+    marked.forEach(cv => cv.classList.remove('hit', 'near', 'on'));
     marked = [];
     if (!img) {
       badge.set('–'); announced = null;
       document.getElementById('meta-big').textContent = t('emptyBig');
       document.getElementById('meta-small').textContent = t('emptySmall');
       paintImage(document.getElementById('pv-input'), null);
-      paintImage(document.getElementById('pv-centroid'), null);
+      paintImage(document.getElementById('pv-stroke'), null, PS);
       barRows.forEach(r => { r.classList.remove('best'); r.querySelector('.bar-fill').style.width = '0'; r.querySelector('.v').textContent = '–'; });
-      top5.forEach(el => { paintImage(el.querySelector('canvas'), null); el.querySelector('span').innerHTML = ''; });
+      top5.forEach(el => { paintImage(el.querySelector('canvas'), null, PS); el.querySelector('span').innerHTML = ''; });
       return;
     }
-    const { dist, order } = nearest(img);
-    const best = order[0], label = C.labels[best];
+    const { probs, strokes } = classify(img);
+    const byProb = [...probs.keys()].sort((a, b) => probs[b] - probs[a]);
+    const label = byProb[0], second = byProb[1];
 
     if (loud && label !== announced) { badge.hit(String(label)); announced = label; }
     else badge.set(String(label));
 
     document.getElementById('meta-big').textContent = t('itIs', { d: label });
-    document.getElementById('meta-small').textContent = t('detail', {
-      c: best, n: num(C.sizes[best]), p: (C.purity[best] * 100).toFixed(0), d: label, dist: dist[best].toFixed(2),
-    });
+    document.getElementById('meta-small').textContent = t('detail', { p: pct(probs[label]), d2: second, p2: pct(probs[second]) });
     paintImage(document.getElementById('pv-input'), img);
-    paintImage(document.getElementById('pv-centroid'), centroid(best));
 
-    // khoảng cách nhỏ nhất tới cluster của từng chữ số
-    const minD = new Array(10).fill(Infinity);
-    for (let k = 0; k < K; k++) minD[C.labels[k]] = Math.min(minD[C.labels[k]], dist[k]);
-    const dmin = Math.min(...minD);
     barRows.forEach((row, d) => {
-      const has = isFinite(minD[d]);
       row.classList.toggle('best', d === label);
-      row.querySelector('.bar-fill').style.width = has ? (Math.exp(-(minD[d] - dmin) / 1.2) * 100).toFixed(1) + '%' : '0';
-      row.querySelector('.v').textContent = has ? minD[d].toFixed(2) : '–';
+      row.querySelector('.bar-fill').style.width = (probs[d] * 100).toFixed(1) + '%';
+      row.querySelector('.v').textContent = pct(probs[d]) + '%';
     });
 
-    order.slice(0, 5).forEach((k, i) => {
-      paintImage(top5[i].querySelector('canvas'), centroid(k));
-      top5[i].querySelector('span').innerHTML = t('top5Item', { d: C.labels[k], dist: dist[k].toFixed(2) });
-      galleryCells[k].classList.add(i === 0 ? 'hit' : 'near');
+    // các nét được dùng nhiều nhất (nét gần nhất ở nhiều vị trí có mực nhất)
+    const order = [...strokes.keys()].filter(k => strokes[k] > 0).sort((a, b) => strokes[b] - strokes[a]);
+    paintImage(document.getElementById('pv-stroke'), order.length ? strokeImg[order[0]] : null, PS);
+    top5.forEach((el, i) => {
+      const k = order[i];
+      paintImage(el.querySelector('canvas'), k === undefined ? null : strokeImg[k], PS);
+      el.querySelector('span').innerHTML = k === undefined ? '' : t('top5Item', { k, n: strokes[k] });
+    });
+    order.slice(0, 20).forEach((k, i) => {
+      galleryCells[k].classList.add(i === 0 ? 'hit' : i < 5 ? 'near' : 'on');
       marked.push(galleryCells[k]);
     });
   }

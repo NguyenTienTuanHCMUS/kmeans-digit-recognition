@@ -1,12 +1,18 @@
 """
-Chương trình 2: Vẽ chữ số trên bảng 28x28 và nhận diện bằng các cluster K-means.
+Chương trình 2: Vẽ chữ số trên bảng 28x28 và nhận diện bằng đặc trưng học từ K-means.
 
-Cần chạy train_kmeans.py trước để tạo file clusters.npz.
+Mô hình (features_k400.npz) do train_features.py tạo ra:
+  - K-means đã học một "từ điển" gồm các nét cơ bản 6x6,
+  - mỗi hình vẽ được mô tả bằng mức xuất hiện của từng nét ở 4 góc phần tư,
+  - hồi quy logistic đọc mô tả đó và cho xác suất của từng chữ số.
+
 Chạy:  python digit_app.py
+       python digit_app.py --model features_k200.npz
 
 Cách dùng: giữ chuột trái để vẽ, chuột phải để tẩy, nút "Xóa" để vẽ lại.
 Kết quả được cập nhật mỗi khi nhả chuột.
 """
+import argparse
 import os
 import tkinter as tk
 from tkinter import messagebox
@@ -14,13 +20,17 @@ from tkinter import messagebox
 import numpy as np
 from PIL import Image
 
+from numpy.lib.stride_tricks import sliding_window_view
+
+from train_features import P, encode, normalize
+from train_kmeans import squared_distances
+
 HERE = os.path.dirname(os.path.abspath(__file__))
-CLUSTER_FILE = os.path.join(HERE, "clusters.npz")
 
 GRID = 28          # bảng vẽ 28x28 ô, đúng kích thước ảnh MNIST
 CELL = 16          # mỗi ô hiển thị 16x16 pixel trên màn hình
 BRUSH = 1.5        # bán kính cọ (tính theo ô)
-PREVIEW_CELL = 5   # kích thước ô của các ảnh xem trước nhỏ
+PREVIEW = 140      # cạnh (pixel) của các ảnh xem trước
 
 
 def preprocess(grid):
@@ -49,17 +59,50 @@ def preprocess(grid):
     return np.roll(out, (dy, dx), axis=(0, 1))
 
 
+class FeatureModel:
+    """Từ điển nét K-means + hồi quy logistic, đọc từ file .npz của train_features.py."""
+
+    def __init__(self, path):
+        d = np.load(path)
+        self.centroids = d["centroids"]
+        self.zca_mean, self.zca_W = d["zca_mean"], d["zca_W"]
+        self.mu, self.sd = d["feat_mean"], d["feat_std"]
+        self.coef, self.intercept = d["coef"], d["intercept"]
+        self.test_acc = float(d["test_acc"])
+        self.K = len(self.centroids)
+
+    def predict(self, img):
+        """Trả về (xác suất 10 chữ số, số vị trí có mực mà mỗi nét là nét gần nhất)."""
+        raw = encode(img.reshape(1, -1), self.centroids, self.zca_mean, self.zca_W)[0]
+        logits = self.coef @ ((raw - self.mu) / self.sd) + self.intercept
+        p = np.exp(logits - logits.max())
+        return p / p.sum(), self.stroke_counts(img)
+
+    def stroke_counts(self, img):
+        """Chỉ để hiển thị: ở mỗi mảnh 6x6 có mực, nét nào là nét gần nhất."""
+        patches = sliding_window_view(img.reshape(28, 28), (P, P)).reshape(-1, P * P)
+        patches = patches[patches.var(axis=1) > 0.01]
+        if len(patches) == 0:
+            return np.zeros(self.K, dtype=int)
+        white = (normalize(patches) - self.zca_mean) @ self.zca_W
+        nearest = squared_distances(white, self.centroids).argmin(axis=1)
+        return np.bincount(nearest, minlength=self.K)
+
+    def stroke_image(self, k):
+        """Ảnh 6x6 của nét k, co giãn về 0..1 để hiển thị."""
+        c = self.centroids[k]
+        return ((c - c.min()) / (c.max() - c.min() + 1e-8)).reshape(P, P)
+
+
 class DigitApp:
-    def __init__(self, root, centroids, labels, sizes):
+    def __init__(self, root, model):
         self.root = root
-        self.centroids = centroids
-        self.c_sq = (centroids ** 2).sum(axis=1)
-        self.labels = labels
-        self.sizes = sizes
+        self.model = model
         self.grid = np.zeros((GRID, GRID), dtype=np.float32)
         self.last = None
 
-        root.title(f"Nhận diện chữ số bằng K-means ({len(labels)} cluster)")
+        root.title(f"Nhận diện chữ số: K-means học {model.K} nét cơ bản "
+                   f"({model.test_acc * 100:.2f}% trên tập test)")
         root.resizable(False, False)
 
         # ---- Bảng vẽ ----
@@ -91,33 +134,34 @@ class DigitApp:
         tk.Label(right, text="Dự đoán", font=("Segoe UI", 12, "bold")).pack()
         self.result = tk.Label(right, text="?", font=("Segoe UI", 72, "bold"), fg="#1f6feb", width=3)
         self.result.pack()
+        self.confidence = tk.Label(right, text="", font=("Segoe UI", 10), fg="#555")
+        self.confidence.pack()
 
         previews = tk.Frame(right)
         previews.pack(pady=6)
-        self.prev_input = self._make_preview(previews, "Ảnh sau chuẩn hóa", 0)
-        self.prev_centroid = self._make_preview(previews, "Centroid gần nhất", 1)
+        self.prev_input = self._make_preview(previews, "Ảnh sau chuẩn hóa", 0, GRID)
+        self.prev_stroke = self._make_preview(previews, "Nét được dùng nhiều nhất", 1, P)
 
-        tk.Label(right, text="5 cluster gần nhất", font=("Segoe UI", 10, "bold")).pack(pady=(10, 2))
-        self.top_list = tk.Label(right, text="", font=("Consolas", 10), justify=tk.LEFT, anchor="w")
-        self.top_list.pack(fill=tk.X)
+        tk.Label(right, text="Xác suất từng chữ số", font=("Segoe UI", 10, "bold")).pack(pady=(10, 2))
+        self.prob_list = tk.Label(right, text="", font=("Consolas", 10), justify=tk.LEFT, anchor="w")
+        self.prob_list.pack(fill=tk.X)
 
-    def _make_preview(self, parent, title, col):
+    def _make_preview(self, parent, title, col, n):
         frame = tk.Frame(parent, padx=4)
         frame.grid(row=0, column=col)
         tk.Label(frame, text=title, font=("Segoe UI", 9)).pack()
-        s = GRID * PREVIEW_CELL
-        cv = tk.Canvas(frame, width=s, height=s, bg="black", highlightthickness=0)
+        cv = tk.Canvas(frame, width=PREVIEW, height=PREVIEW, bg="black", highlightthickness=0)
         cv.pack()
-        cells = [[cv.create_rectangle(c * PREVIEW_CELL, r * PREVIEW_CELL, (c + 1) * PREVIEW_CELL,
-                                      (r + 1) * PREVIEW_CELL, fill="#000000", width=0)
-                  for c in range(GRID)] for r in range(GRID)]
-        return cv, cells
+        s = PREVIEW / n
+        cells = [[cv.create_rectangle(c * s, r * s, (c + 1) * s, (r + 1) * s, fill="#000000", width=0)
+                  for c in range(n)] for r in range(n)]
+        return cv, cells, n
 
     @staticmethod
     def _show(preview, img):
-        cv, cells = preview
-        for r in range(GRID):
-            for c in range(GRID):
+        cv, cells, n = preview
+        for r in range(n):
+            for c in range(n):
                 v = int(np.clip(img[r, c], 0, 1) * 255) if img is not None else 0
                 cv.itemconfig(cells[r][c], fill=f"#{v:02x}{v:02x}{v:02x}")
 
@@ -158,37 +202,40 @@ class DigitApp:
             for rect in row:
                 self.canvas.itemconfig(rect, fill="#000000")
         self.result.config(text="?")
-        self.top_list.config(text="")
+        self.confidence.config(text="")
+        self.prob_list.config(text="")
         self._show(self.prev_input, None)
-        self._show(self.prev_centroid, None)
+        self._show(self.prev_stroke, None)
 
-    # ---- Nhận diện: tìm centroid gần nhất ----
+    # ---- Nhận diện ----
     def predict(self):
         img = preprocess(self.grid)
         if img is None:
             self.clear()
             return
-        x = img.reshape(-1)
-        dist = np.sqrt(np.maximum((x ** 2).sum() - 2 * self.centroids @ x + self.c_sq, 0))
-        order = np.argsort(dist)
-        best = order[0]
+        probs, strokes = self.model.predict(img)
+        best = int(probs.argmax())
 
-        self.result.config(text=str(self.labels[best]))
+        self.result.config(text=str(best))
+        self.confidence.config(text=f"Chắc chắn {probs[best] * 100:.1f}%")
         self._show(self.prev_input, img)
-        self._show(self.prev_centroid, self.centroids[best].reshape(GRID, GRID))
-        lines = [f"cluster {i:3d} -> số {self.labels[i]}  (k/c {dist[i]:5.2f}, {self.sizes[i]} ảnh)"
-                 for i in order[:5]]
-        self.top_list.config(text="\n".join(lines))
+        self._show(self.prev_stroke, self.model.stroke_image(int(strokes.argmax())))
+        lines = [f"số {d}  {'█' * int(round(probs[d] * 20)):<20} {probs[d] * 100:5.1f}%" for d in range(10)]
+        self.prob_list.config(text="\n".join(lines))
 
 
 def main():
+    ap = argparse.ArgumentParser(description="Vẽ và nhận diện chữ số")
+    ap.add_argument("--model", default="features_k400.npz", help="file mô hình do train_features.py tạo")
+    args = ap.parse_args()
+    path = os.path.join(HERE, args.model)
+
     root = tk.Tk()
-    if not os.path.exists(CLUSTER_FILE):
+    if not os.path.exists(path):
         root.withdraw()
-        messagebox.showerror("Thiếu file", "Không tìm thấy clusters.npz.\nHãy chạy train_kmeans.py trước.")
+        messagebox.showerror("Thiếu file", f"Không tìm thấy {args.model}.\nHãy chạy train_features.py trước.")
         return
-    data = np.load(CLUSTER_FILE)
-    DigitApp(root, data["centroids"].astype(np.float32), data["labels"], data["sizes"])
+    DigitApp(root, FeatureModel(path))
     root.mainloop()
 
 
