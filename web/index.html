@@ -32,6 +32,10 @@
   .links { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 0; }
   a.pill { color: var(--text); text-decoration: none; }
   a.pill:hover { border-color: var(--text); }
+  .lang { display: inline-flex; gap: 6px; }
+  button.pill { background: none; cursor: pointer; font: inherit; font-size: 13px; font-weight: 700; color: var(--mute); }
+  button.pill:hover { border-color: var(--text); color: var(--text); }
+  button.pill[aria-pressed="true"] { background: var(--text); border-color: var(--text); color: #fff; }
   a.pill svg { width: 15px; height: 15px; fill: currentColor; }
 
   .grid { display: grid; grid-template-columns: minmax(0, 540px) minmax(0, 1fr); gap: 18px; margin-top: 26px; }
@@ -117,81 +121,85 @@
 <body>
 <div class="wrap">
   <header>
-    <h1 class="display">Nhận diện chữ số bằng K&#8209;means</h1>
-    <p class="lede">Vẽ một chữ số lên bảng 28 × 28. Chương trình chuẩn hóa hình vẽ giống ảnh MNIST, rồi tìm centroid gần nhất trong các cluster mà K-means đã học. Nhãn của cluster đó chính là đáp án.</p>
+    <h1 class="display" data-i18n="title">Nhận diện chữ số bằng K&#8209;means</h1>
+    <p class="lede" data-i18n="lede">Vẽ một chữ số lên bảng 28 × 28. Chương trình chuẩn hóa hình vẽ giống ảnh MNIST, rồi tìm centroid gần nhất trong các cluster mà K-means đã học. Nhãn của cluster đó chính là đáp án.</p>
     <div class="pills" id="pills"></div>
     <p class="links">
       <a class="pill" href="https://github.com/NguyenTienTuanHCMUS/kmeans-digit-recognition" target="_blank" rel="noopener">
         <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-        Mã nguồn trên GitHub <span aria-hidden="true">&#8599;</span>
+        <span data-i18n="github">Mã nguồn trên GitHub</span> <span aria-hidden="true">&#8599;</span>
       </a>
+      <span class="lang" role="group" aria-label="Ngôn ngữ / Language">
+        <button type="button" class="pill" data-lang="vi" lang="vi">Tiếng Việt</button>
+        <button type="button" class="pill" data-lang="en" lang="en">English</button>
+      </span>
     </p>
   </header>
 
   <div class="grid">
     <section class="card">
-      <h2>Bảng vẽ <span>28 × 28</span></h2>
-      <p class="how">Giữ chuột (hoặc ngón tay) và vẽ. Nhả ra để chốt đáp án.</p>
+      <h2 data-i18n-html="boardTitle">Bảng vẽ <span>28 × 28</span></h2>
+      <p class="how" data-i18n="boardHow">Giữ chuột (hoặc ngón tay) và vẽ. Nhả ra để chốt đáp án.</p>
       <div class="board-area">
         <sakuga-tabs id="tool" label="Công cụ">
           <option value="draw">Vẽ</option>
           <option value="erase">Tẩy</option>
         </sakuga-tabs>
         <div class="board-wrap">
-          <canvas id="board" width="560" height="560" aria-label="Bảng vẽ chữ số"></canvas>
-          <div class="empty-hint" id="hint">Vẽ một chữ số từ 0 đến 9</div>
+          <canvas id="board" width="560" height="560" aria-label="Bảng vẽ chữ số" data-i18n-attr="aria-label:boardAria"></canvas>
+          <div class="empty-hint" id="hint" data-i18n="hint">Vẽ một chữ số từ 0 đến 9</div>
         </div>
       </div>
       <div class="controls">
         <div class="field">
-          <span>Cỡ cọ</span>
-          <sakuga-slider id="brush" min="1" max="2.5" step="0.1" value="1.5" unit="" label="Cỡ cọ"></sakuga-slider>
+          <span data-i18n="brush">Cỡ cọ</span>
+          <sakuga-slider id="brush" min="1" max="2.5" step="0.1" value="1.5" unit="" label="Cỡ cọ" data-i18n-attr="label:brush"></sakuga-slider>
         </div>
-        <sakuga-button id="clear">Xóa bảng</sakuga-button>
+        <sakuga-button id="clear" data-i18n="clear">Xóa bảng</sakuga-button>
       </div>
       <div class="opt">
-        <sakuga-toggle id="live" label="Nhận diện ngay khi đang vẽ" checked></sakuga-toggle>
-        <label for="live">Nhận diện ngay khi đang vẽ</label>
+        <sakuga-toggle id="live" label="Nhận diện ngay khi đang vẽ" data-i18n-attr="label:live" checked></sakuga-toggle>
+        <label for="live" data-i18n="live">Nhận diện ngay khi đang vẽ</label>
       </div>
-      <p class="keys"><kbd>B</kbd> vẽ &nbsp;·&nbsp; <kbd>E</kbd> tẩy &nbsp;·&nbsp; <kbd>C</kbd> xóa &nbsp;·&nbsp; chuột phải cũng là tẩy</p>
+      <p class="keys" data-i18n-html="keys"><kbd>B</kbd> vẽ &nbsp;·&nbsp; <kbd>E</kbd> tẩy &nbsp;·&nbsp; <kbd>C</kbd> xóa &nbsp;·&nbsp; chuột phải cũng là tẩy</p>
     </section>
 
     <section class="card">
-      <h2>Kết quả</h2>
+      <h2 data-i18n="result">Kết quả</h2>
       <div class="result-top">
         <digit-badge id="badge"></digit-badge>
         <div class="meta">
           <div class="big display" id="meta-big">Chưa có hình vẽ</div>
           <div class="small" id="meta-small">Vẽ xong, nhả chuột ra là có đáp án.</div>
           <div class="compare">
-            <div class="thumb"><canvas id="pv-input" width="28" height="28"></canvas>Hình của bạn</div>
+            <div class="thumb"><canvas id="pv-input" width="28" height="28"></canvas><span data-i18n="yours">Hình của bạn</span></div>
             <div class="arrow">→</div>
-            <div class="thumb"><canvas id="pv-centroid" width="28" height="28"></canvas>Centroid gần nhất</div>
+            <div class="thumb"><canvas id="pv-centroid" width="28" height="28"></canvas><span data-i18n="nearest">Centroid gần nhất</span></div>
           </div>
         </div>
       </div>
 
       <div class="section">
-        <h3>Khoảng cách tới từng chữ số
-          <sakuga-tooltip label="Giải thích" text="Số bên phải là khoảng cách Euclid từ hình vẽ tới cluster gần nhất của chữ số đó. Thanh càng dài là càng gần."></sakuga-tooltip>
+        <h3><span data-i18n="distTitle">Khoảng cách tới từng chữ số</span>
+          <sakuga-tooltip data-i18n-attr="label:tipLabel,text:tipText" label="Giải thích" text="Số bên phải là khoảng cách Euclid từ hình vẽ tới cluster gần nhất của chữ số đó. Thanh càng dài là càng gần."></sakuga-tooltip>
         </h3>
         <div class="bars" id="bars"></div>
       </div>
 
       <div class="section">
-        <h3>5 cluster gần nhất</h3>
+        <h3 data-i18n="top5">5 cluster gần nhất</h3>
         <div class="top5" id="top5"></div>
       </div>
     </section>
   </div>
 
   <section class="card gallery">
-    <h2 id="gallery-title">Các centroid mà K-means tìm ra</h2>
-    <p class="how">Mỗi ô là trung bình của một cluster, tức một "kiểu viết" mà K-means tự phát hiện, xếp theo nhãn đã gán. Ô viền đậm là cluster khớp nhất với hình bạn vẽ. Đưa chuột vào một ô để xem chi tiết.</p>
+    <h2 id="gallery-title" data-i18n="galleryTitle">Các centroid mà K-means tìm ra</h2>
+    <p class="how" data-i18n="galleryHow">Mỗi ô là trung bình của một cluster, tức một "kiểu viết" mà K-means tự phát hiện, xếp theo nhãn đã gán. Ô viền đậm là cluster khớp nhất với hình bạn vẽ. Đưa chuột vào một ô để xem chi tiết.</p>
     <div id="gallery" style="margin-top:12px"></div>
   </section>
 
-  <p class="note">Mã nguồn, cách huấn luyện và bảng so sánh số cluster với độ chính xác: <a href="https://github.com/NguyenTienTuanHCMUS/kmeans-digit-recognition" target="_blank" rel="noopener">github.com/NguyenTienTuanHCMUS/kmeans-digit-recognition</a>.<br>Giao diện dùng các thành phần của <a href="https://github.com/finktheartist/sakuga-vfx" target="_blank" rel="noopener">Sakuga VFX</a> (MIT). Hiệu ứng tự tắt khi máy bật chế độ giảm chuyển động.</p>
+  <p class="note" data-i18n-html="note">Mã nguồn, cách huấn luyện và bảng so sánh số cluster với độ chính xác: <a href="https://github.com/NguyenTienTuanHCMUS/kmeans-digit-recognition" target="_blank" rel="noopener">github.com/NguyenTienTuanHCMUS/kmeans-digit-recognition</a>.<br>Giao diện dùng các thành phần của <a href="https://github.com/finktheartist/sakuga-vfx" target="_blank" rel="noopener">Sakuga VFX</a> (MIT). Hiệu ứng tự tắt khi máy bật chế độ giảm chuyển động.</p>
 </div>
 
 <script src="clusters.js"></script>
@@ -204,8 +212,92 @@
 (() => {
   const N = 28, D = N * N;
   const C = window.CLUSTERS, FX = window.SakugaFX;
+
+  // ---- Hai ngôn ngữ: tiếng Việt và tiếng Anh ----
+  const STR = {
+    vi: {
+      pageTitle: 'Nhận diện chữ số K-means',
+      title: 'Nhận diện chữ số bằng K‑means',
+      lede: 'Vẽ một chữ số lên bảng 28 × 28. Chương trình chuẩn hóa hình vẽ giống ảnh MNIST, rồi tìm centroid gần nhất trong các cluster mà K-means đã học. Nhãn của cluster đó chính là đáp án.',
+      github: 'Mã nguồn trên GitHub',
+      clustersPill: '<b>{k}</b> cluster',
+      accPill: '<b>{acc}%</b> đúng trên tập test',
+      trainPill: '<b>60.000</b> ảnh train',
+      boardTitle: 'Bảng vẽ <span>28 × 28</span>',
+      boardHow: 'Giữ chuột (hoặc ngón tay) và vẽ. Nhả ra để chốt đáp án.',
+      boardAria: 'Bảng vẽ chữ số',
+      hint: 'Vẽ một chữ số từ 0 đến 9',
+      tool: 'Công cụ', draw: 'Vẽ', erase: 'Tẩy',
+      brush: 'Cỡ cọ',
+      clear: 'Xóa bảng',
+      live: 'Nhận diện ngay khi đang vẽ',
+      keys: '<kbd>B</kbd> vẽ &nbsp;·&nbsp; <kbd>E</kbd> tẩy &nbsp;·&nbsp; <kbd>C</kbd> xóa &nbsp;·&nbsp; chuột phải cũng là tẩy',
+      result: 'Kết quả',
+      emptyBig: 'Chưa có hình vẽ',
+      emptySmall: 'Vẽ xong, nhả chuột ra là có đáp án.',
+      itIs: 'Đây là số {d}!',
+      detail: 'Gần nhất là cluster #{c}, gồm {n} ảnh train, {p}% trong đó là số {d}. Khoảng cách {dist}.',
+      yours: 'Hình của bạn',
+      nearest: 'Centroid gần nhất',
+      distTitle: 'Khoảng cách tới từng chữ số',
+      tipLabel: 'Giải thích',
+      tipText: 'Số bên phải là khoảng cách Euclid từ hình vẽ tới cluster gần nhất của chữ số đó. Thanh càng dài là càng gần.',
+      top5: '5 cluster gần nhất',
+      top5Item: 'số <b>{d}</b> · {dist}',
+      galleryTitle: '{k} centroid mà K-means tìm ra',
+      galleryHow: 'Mỗi ô là trung bình của một cluster, tức một "kiểu viết" mà K-means tự phát hiện, xếp theo nhãn đã gán. Ô viền đậm là cluster khớp nhất với hình bạn vẽ. Đưa chuột vào một ô để xem chi tiết.',
+      cellTitle: 'Cluster {c}: số {d}, {n} ảnh, độ thuần {p}%',
+      note: 'Mã nguồn, cách huấn luyện và bảng so sánh số cluster với độ chính xác: <a href="https://github.com/NguyenTienTuanHCMUS/kmeans-digit-recognition" target="_blank" rel="noopener">github.com/NguyenTienTuanHCMUS/kmeans-digit-recognition</a>.<br>Giao diện dùng các thành phần của <a href="https://github.com/finktheartist/sakuga-vfx" target="_blank" rel="noopener">Sakuga VFX</a> (MIT). Hiệu ứng tự tắt khi máy bật chế độ giảm chuyển động.',
+      missing: 'Không tìm thấy clusters.js. Hãy chạy <code>python export_web.py</code> trước.',
+    },
+    en: {
+      pageTitle: 'K-means Digit Recognition',
+      title: 'Handwritten digit recognition with K‑means',
+      lede: 'Draw a digit on the 28 × 28 board. The page normalizes your drawing the way MNIST images were made, then finds the nearest centroid among the clusters K-means learned. That cluster\'s label is the answer.',
+      github: 'Source on GitHub',
+      clustersPill: '<b>{k}</b> clusters',
+      accPill: '<b>{acc}%</b> correct on the test set',
+      trainPill: '<b>60,000</b> training images',
+      boardTitle: 'Drawing board <span>28 × 28</span>',
+      boardHow: 'Hold the mouse (or a finger) and draw. Let go to lock in the answer.',
+      boardAria: 'Digit drawing board',
+      hint: 'Draw a digit from 0 to 9',
+      tool: 'Tool', draw: 'Draw', erase: 'Erase',
+      brush: 'Brush size',
+      clear: 'Clear',
+      live: 'Recognize while drawing',
+      keys: '<kbd>B</kbd> draw &nbsp;·&nbsp; <kbd>E</kbd> erase &nbsp;·&nbsp; <kbd>C</kbd> clear &nbsp;·&nbsp; right-click also erases',
+      result: 'Result',
+      emptyBig: 'Nothing drawn yet',
+      emptySmall: 'Finish drawing and let go to get the answer.',
+      itIs: 'It\'s a {d}!',
+      detail: 'Nearest is cluster #{c}, made of {n} training images, {p}% of them a {d}. Distance {dist}.',
+      yours: 'Your drawing',
+      nearest: 'Nearest centroid',
+      distTitle: 'Distance to each digit',
+      tipLabel: 'Explain',
+      tipText: 'The number on the right is the Euclidean distance from your drawing to that digit\'s nearest cluster. A longer bar means closer.',
+      top5: '5 nearest clusters',
+      top5Item: 'digit <b>{d}</b> · {dist}',
+      galleryTitle: 'The {k} centroids K-means found',
+      galleryHow: 'Each tile is the average of one cluster, a "writing style" K-means discovered on its own, grouped by the label it was given. The tile with the bold border is the cluster closest to your drawing. Hover a tile for details.',
+      cellTitle: 'Cluster {c}: digit {d}, {n} images, {p}% pure',
+      note: 'Source code, training steps and the cluster count vs. accuracy comparison: <a href="https://github.com/NguyenTienTuanHCMUS/kmeans-digit-recognition" target="_blank" rel="noopener">github.com/NguyenTienTuanHCMUS/kmeans-digit-recognition</a>.<br>The interface uses components from <a href="https://github.com/finktheartist/sakuga-vfx" target="_blank" rel="noopener">Sakuga VFX</a> (MIT). Effects switch off when the device has reduced motion turned on.',
+      missing: 'clusters.js not found. Run <code>python export_web.py</code> first.',
+    },
+  };
+  // Thứ tự ưu tiên: ?lang= trên URL, lựa chọn đã lưu, rồi ngôn ngữ của trình duyệt
+  let lang = (() => {
+    const q = new URLSearchParams(location.search).get('lang');
+    if (q in STR) return q;
+    try { const s = localStorage.getItem('lang'); if (s in STR) return s; } catch {}
+    return (navigator.language || '').toLowerCase().startsWith('vi') ? 'vi' : 'en';
+  })();
+  const t = (key, vars = {}) => STR[lang][key].replace(/\{(\w+)\}/g, (_, v) => vars[v]);
+  const num = n => n.toLocaleString(lang === 'vi' ? 'vi-VN' : 'en-US');
+
   if (!C) {
-    document.body.innerHTML = '<p style="padding:24px">Không tìm thấy clusters.js. Hãy chạy <code>python export_web.py</code> trước.</p>';
+    document.body.innerHTML = `<p style="padding:24px">${t('missing')}</p>`;
     return;
   }
 
@@ -256,10 +348,12 @@
   }
   const centroid = k => cents.subarray(k * D, (k + 1) * D);
 
-  document.getElementById('pills').innerHTML =
-    `<span class="pill"><b>${K}</b> cluster</span>` +
-    `<span class="pill"><b>${(C.testAcc * 100).toFixed(2)}%</b> đúng trên tập test</span>` +
-    `<span class="pill"><b>60.000</b> ảnh train</span>`;
+  const renderPills = () => {
+    document.getElementById('pills').innerHTML =
+      `<span class="pill">${t('clustersPill', { k: K })}</span>` +
+      `<span class="pill">${t('accPill', { acc: (C.testAcc * 100).toFixed(2) })}</span>` +
+      `<span class="pill">${t('trainPill')}</span>`;
+  };
 
   // ---- Vẽ ảnh 28x28: mực trên giấy (giá trị 1 = màu mực) ----
   const INK = [29, 26, 74];
@@ -356,8 +450,18 @@
   }
 
   // ---- Các control Sakuga ----
-  const toolEl = document.getElementById('tool');
-  toolEl.addEventListener('change', e => { tool = e.detail.value; });
+  // Tab Vẽ/Tẩy đọc nhãn từ các <option> một lần lúc tạo, nên đổi ngôn ngữ thì tạo lại nó
+  let toolEl = document.getElementById('tool');
+  function buildTools() {
+    const el = document.createElement('sakuga-tabs');
+    el.id = 'tool';
+    el.setAttribute('label', t('tool'));
+    el.setAttribute('selected', tool === 'erase' ? '1' : '0');
+    el.innerHTML = `<option value="draw">${t('draw')}</option><option value="erase">${t('erase')}</option>`;
+    el.addEventListener('change', e => { tool = e.detail.value; });
+    toolEl.replaceWith(el);
+    toolEl = el;
+  }
   document.getElementById('brush').addEventListener('input', e => { brush = e.currentTarget.valueAsNumber || 1.5; });
   document.getElementById('live').addEventListener('change', e => { live = e.currentTarget.checked; });
 
@@ -484,7 +588,9 @@
   // bộ sưu tập centroid, nhóm theo nhãn, cluster lớn đứng trước
   const gallery = document.getElementById('gallery');
   const galleryCells = new Array(K);
-  document.getElementById('gallery-title').textContent = `${K} centroid mà K-means tìm ra`;
+  const cellTitles = () => galleryCells.forEach((cv, k) => {
+    cv.title = t('cellTitle', { c: k, d: C.labels[k], n: num(C.sizes[k]), p: (C.purity[k] * 100).toFixed(0) });
+  });
   for (let d = 0; d < 10; d++) {
     const ids = [];
     for (let k = 0; k < K; k++) if (C.labels[k] === d) ids.push(k);
@@ -496,7 +602,6 @@
     for (const k of ids) {
       const cv = document.createElement('canvas');
       cv.width = cv.height = N;
-      cv.title = `Cluster ${k}: số ${d}, ${C.sizes[k]} ảnh, độ thuần ${(C.purity[k] * 100).toFixed(0)}%`;
       paintImage(cv, centroid(k));
       cells.appendChild(cv);
       galleryCells[k] = cv;
@@ -513,8 +618,8 @@
     marked = [];
     if (!img) {
       badge.set('–'); announced = null;
-      document.getElementById('meta-big').textContent = 'Chưa có hình vẽ';
-      document.getElementById('meta-small').textContent = 'Vẽ xong, nhả chuột ra là có đáp án.';
+      document.getElementById('meta-big').textContent = t('emptyBig');
+      document.getElementById('meta-small').textContent = t('emptySmall');
       paintImage(document.getElementById('pv-input'), null);
       paintImage(document.getElementById('pv-centroid'), null);
       barRows.forEach(r => { r.classList.remove('best'); r.querySelector('.bar-fill').style.width = '0'; r.querySelector('.v').textContent = '–'; });
@@ -527,10 +632,10 @@
     if (loud && label !== announced) { badge.hit(String(label)); announced = label; }
     else badge.set(String(label));
 
-    document.getElementById('meta-big').textContent = `Đây là số ${label}!`;
-    document.getElementById('meta-small').textContent =
-      `Gần nhất là cluster #${best}, gồm ${C.sizes[best].toLocaleString('vi-VN')} ảnh train, ` +
-      `${(C.purity[best] * 100).toFixed(0)}% trong đó là số ${label}. Khoảng cách ${dist[best].toFixed(2)}.`;
+    document.getElementById('meta-big').textContent = t('itIs', { d: label });
+    document.getElementById('meta-small').textContent = t('detail', {
+      c: best, n: num(C.sizes[best]), p: (C.purity[best] * 100).toFixed(0), d: label, dist: dist[best].toFixed(2),
+    });
     paintImage(document.getElementById('pv-input'), img);
     paintImage(document.getElementById('pv-centroid'), centroid(best));
 
@@ -547,14 +652,43 @@
 
     order.slice(0, 5).forEach((k, i) => {
       paintImage(top5[i].querySelector('canvas'), centroid(k));
-      top5[i].querySelector('span').innerHTML = `số <b>${C.labels[k]}</b> · ${dist[k].toFixed(2)}`;
+      top5[i].querySelector('span').innerHTML = t('top5Item', { d: C.labels[k], dist: dist[k].toFixed(2) });
       galleryCells[k].classList.add(i === 0 ? 'hit' : 'near');
       marked.push(galleryCells[k]);
     });
   }
 
+  // ---- Áp dụng ngôn ngữ cho cả trang ----
+  function applyLang(next, remember) {
+    lang = next;
+    document.documentElement.lang = lang;
+    document.title = t('pageTitle');
+    document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n, { k: K }); });
+    document.querySelectorAll('[data-i18n-html]').forEach(el => { el.innerHTML = t(el.dataset.i18nHtml); });
+    document.querySelectorAll('[data-i18n-attr]').forEach(el => {
+      for (const pair of el.dataset.i18nAttr.split(',')) {
+        const [attr, key] = pair.split(':');
+        el.setAttribute(attr, t(key));
+      }
+    });
+    document.querySelectorAll('[data-lang]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.lang === lang)));
+    renderPills();
+    cellTitles();
+    buildTools();
+    predict(false);   // viết lại phần kết quả bằng ngôn ngữ mới, không nổ hiệu ứng
+    if (remember) {
+      try { localStorage.setItem('lang', lang); } catch {}
+      const url = new URL(location.href);
+      url.searchParams.set('lang', lang);
+      history.replaceState(null, '', url);
+    }
+  }
+  document.querySelectorAll('[data-lang]').forEach(b => b.addEventListener('click', () => {
+    if (b.dataset.lang !== lang) applyLang(b.dataset.lang, true);
+  }));
+
   renderBoard();
-  predict(false);
+  applyLang(lang, false);
 })();
 </script>
 </body>

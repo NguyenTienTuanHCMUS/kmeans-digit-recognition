@@ -1,173 +1,178 @@
-# Nhận diện chữ số viết tay bằng K-means
+# Handwritten digit recognition with K-means
 
-Dự án nhỏ ra đời từ một ý tưởng chợt nảy ra khi học **K-means clustering**: nếu cho K-means gom 60.000 ảnh chữ số MNIST thành các cụm, rồi đặt tên cho từng cụm, thì có dùng các cụm đó để đoán chữ số người dùng vẽ được không?
+**English** | [Tiếng Việt](README.vi.md)
 
-Câu trả lời là **được**, và khá tốt: với 400 cluster, chương trình đoán đúng **92,15%** ảnh trong tập test MNIST, dù K-means là thuật toán **học không giám sát** và không hề biết "chữ số" là gì.
+This small project started as an idea that came up while learning **K-means clustering**: if K-means groups the 60,000 MNIST digit images into clusters, and each cluster is then given a name, can those clusters tell which digit a person draws?
 
-**Dùng thử ngay trên trình duyệt:** https://nguyentientuanhcmus.github.io/kmeans-digit-recognition/
+They can, and fairly well. With 400 clusters the program gets **92.15%** of the MNIST test images right, even though K-means is an **unsupervised** algorithm and has no idea what a "digit" is.
 
-## Mục lục
+**Try it in your browser:** https://nguyentientuanhcmus.github.io/kmeans-digit-recognition/web/?lang=en (the page has a Tiếng Việt / English switch)
 
-- [Ý tưởng](#ý-tưởng)
-- [Cấu trúc dự án](#cấu-trúc-dự-án)
-- [Cài đặt và chạy](#cài-đặt-và-chạy)
-- [Thuật toán chi tiết](#thuật-toán-chi-tiết)
-- [Số lượng cluster và độ chính xác](#số-lượng-cluster-và-độ-chính-xác)
-- [Tại sao không dùng 10 cluster cho 10 chữ số?](#tại-sao-không-dùng-10-cluster-cho-10-chữ-số)
-- [Chuẩn hóa hình vẽ: chi tiết nhỏ nhưng quan trọng](#chuẩn-hóa-hình-vẽ-chi-tiết-nhỏ-nhưng-quan-trọng)
-- [Hai giao diện](#hai-giao-diện)
-- [Giới hạn](#giới-hạn)
-- [Nguồn và giấy phép](#nguồn-và-giấy-phép)
+## Contents
 
-## Ý tưởng
+- [The idea](#the-idea)
+- [Project layout](#project-layout)
+- [Setup and running](#setup-and-running)
+- [The algorithm in detail](#the-algorithm-in-detail)
+- [Number of clusters vs. accuracy](#number-of-clusters-vs-accuracy)
+- [Why not 10 clusters for 10 digits?](#why-not-10-clusters-for-10-digits)
+- [Normalizing the drawing: a small detail that matters](#normalizing-the-drawing-a-small-detail-that-matters)
+- [Two interfaces](#two-interfaces)
+- [Limitations](#limitations)
+- [Credits and licenses](#credits-and-licenses)
 
-Toàn bộ quy trình có 3 bước:
+## The idea
 
-1. **Gom cụm (không dùng nhãn).** Mỗi ảnh 28×28 được xem là một điểm trong không gian 784 chiều. K-means chia 60.000 điểm này thành K cụm, mỗi cụm có một **tâm cụm (centroid)**: trung bình của mọi ảnh trong cụm, trông như một chữ số hơi mờ.
-2. **Đặt nhãn cho cụm.** Lúc này mới dùng đến nhãn của tập train: mỗi cụm nhận nhãn của chữ số xuất hiện nhiều nhất trong nó (bỏ phiếu theo đa số).
-3. **Nhận diện.** Với một hình vẽ mới, tìm centroid gần nhất (khoảng cách Euclid). Nhãn của cụm đó chính là đáp án.
+The whole pipeline has 3 steps:
 
-Như vậy K-means vẫn là học không giám sát: nó tự tìm ra các "kiểu viết". Nhãn chỉ được dùng để **đặt tên** cho những gì K-means đã tìm ra.
+1. **Clustering (no labels).** Each 28×28 image is a point in 784-dimensional space. K-means splits the 60,000 points into K clusters. Each cluster has a **centroid**: the average of every image in it, which looks like a slightly blurry digit.
+2. **Labeling the clusters.** Only now are the training labels used: each cluster takes the label of the digit that appears most often in it (a majority vote).
+3. **Recognition.** For a new drawing, find the nearest centroid (Euclidean distance). That cluster's label is the answer.
 
-## Cấu trúc dự án
+So K-means itself stays unsupervised: it finds the "writing styles" on its own. The labels are only used to **name** what K-means found.
+
+## Project layout
 
 ```
-├── train_kmeans.py      Chương trình 1: chạy K-means, gán nhãn cluster, lưu ra clusters.npz
-├── digit_app.py         Chương trình 2: giao diện Tkinter, vẽ chữ số trên bảng 28×28
-├── export_web.py        Chuyển clusters.npz sang web/clusters.js cho bản web
-├── clusters.npz         Kết quả đã huấn luyện sẵn (K = 400)
+├── train_kmeans.py      Program 1: runs K-means, labels the clusters, saves clusters.npz
+├── digit_app.py         Program 2: Tkinter interface with a 28×28 drawing board
+├── export_web.py        Converts clusters.npz into web/clusters.js for the web version
+├── clusters.npz         Pre-trained result (K = 400)
 ├── requirements.txt
-├── index.html           Chuyển hướng tới web/ (cho GitHub Pages)
-├── MNIST/raw/*.gz       Dữ liệu MNIST (bản nén, chương trình đọc trực tiếp)
+├── README.md            English README (this file)
+├── README.vi.md         Vietnamese README
+├── index.html           Redirects to web/ (for GitHub Pages)
+├── MNIST/raw/*.gz       MNIST data (compressed; the program reads it directly)
 ├── web/
-│   ├── index.html       Bản chạy trên trình duyệt
-│   ├── clusters.js      400 centroid đã lượng tử hóa, khoảng 414 KB
-│   └── sakuga/          Các thành phần giao diện Sakuga VFX (MIT)
+│   ├── index.html       The browser version
+│   ├── clusters.js      400 quantized centroids, about 414 KB
+│   └── sakuga/          Sakuga VFX interface components (MIT)
 ```
 
-## Cài đặt và chạy
+## Setup and running
 
-Cần Python 3 (đã thử với 3.14) và hai thư viện:
+You need Python 3 (tested with 3.14) and two libraries:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-**Huấn luyện** (có thể bỏ qua vì repo đã có sẵn `clusters.npz` với K = 400):
+**Training** (optional, since the repo already includes `clusters.npz` with K = 400):
 
 ```bash
-python train_kmeans.py            # mặc định K = 200
-python train_kmeans.py --k 400    # nhiều cluster hơn, chính xác hơn
+python train_kmeans.py            # K = 200 by default
+python train_kmeans.py --k 400    # more clusters, more accurate
 ```
 
-Với K = 200, việc huấn luyện mất khoảng 12 giây trên CPU, hội tụ sau 33 vòng lặp.
+With K = 200, training takes about 12 seconds on a CPU and converges after 33 iterations.
 
-**Giao diện desktop (Tkinter):**
+**Desktop interface (Tkinter):**
 
 ```bash
 python digit_app.py
 ```
 
-**Giao diện web:** dùng bản [trên GitHub Pages](https://nguyentientuanhcmus.github.io/kmeans-digit-recognition/), hoặc mở thẳng file `web/index.html` bằng trình duyệt, không cần server hay internet. Mỗi khi huấn luyện lại, chạy thêm lệnh sau để cập nhật dữ liệu cho bản web:
+**Web interface:** use the [GitHub Pages version](https://nguyentientuanhcmus.github.io/kmeans-digit-recognition/web/?lang=en), or open `web/index.html` directly in a browser. No server and no internet connection needed. After retraining, run this to update the web version's data:
 
 ```bash
 python export_web.py
 ```
 
-## Thuật toán chi tiết
+## The algorithm in detail
 
-K-means được tự cài đặt bằng NumPy (không dùng scikit-learn) để thấy rõ từng bước:
+K-means is implemented from scratch with NumPy (no scikit-learn), so every step is visible:
 
-- **Khởi tạo k-means++.** Centroid đầu tiên được chọn ngẫu nhiên. Mỗi centroid tiếp theo được chọn với xác suất tỉ lệ với bình phương khoảng cách tới centroid gần nhất đã có. Cách này giúp các tâm ban đầu tản ra xa nhau, hội tụ nhanh và ổn định hơn so với chọn ngẫu nhiên hoàn toàn.
-- **Tính khoảng cách nhanh.** Dùng công thức `‖x − c‖² = ‖x‖² − 2·x·c + ‖c‖²`. Phần `x·c` được tính một lần cho mọi cặp (ảnh, centroid) bằng một phép nhân ma trận 60.000 × 784 × K.
-- **Lặp hai bước.** *Bước gán:* mỗi ảnh vào cụm có centroid gần nhất. *Bước cập nhật:* mỗi centroid = trung bình các ảnh trong cụm của nó.
-- **Cụm rỗng.** Nếu một cụm không còn ảnh nào, centroid của nó được đặt lại vào ảnh đang nằm xa centroid của mình nhất.
-- **Điều kiện dừng.** Dừng khi inertia (tổng bình phương khoảng cách) giảm ít hơn 0,01% sau một vòng, hoặc sau 100 vòng.
+- **k-means++ initialization.** The first centroid is picked at random. Each next centroid is picked with probability proportional to the squared distance to the nearest centroid chosen so far. This spreads the starting centroids apart, so the algorithm converges faster and more reliably than with a purely random start.
+- **Fast distances.** Uses `‖x − c‖² = ‖x‖² − 2·x·c + ‖c‖²`. The `x·c` term is computed for every (image, centroid) pair at once with a single 60,000 × 784 × K matrix multiplication.
+- **Two alternating steps.** *Assignment:* each image joins the cluster with the nearest centroid. *Update:* each centroid becomes the average of the images in its cluster.
+- **Empty clusters.** If a cluster ends up with no images, its centroid is moved to the image that is currently farthest from its own centroid.
+- **Stopping rule.** Stop when the inertia (sum of squared distances) drops by less than 0.01% in one iteration, or after 100 iterations.
 
-## Số lượng cluster và độ chính xác
+## Number of clusters vs. accuracy
 
-Kết quả trên **10.000 ảnh test** của MNIST, cùng seed ngẫu nhiên, chỉ thay đổi K:
+Results on the **10,000 MNIST test images**, with the same random seed and only K changing:
 
-| K (số cluster) | Đúng trên tập test | |
+| K (clusters) | Correct on the test set | |
 |---:|---:|:---|
-| 10 | 62,81% | `██████` |
-| 20 | 71,17% | `███████████` |
-| 50 | 81,17% | `████████████████` |
-| 100 | 87,37% | `███████████████████` |
-| 200 | 90,77% | `████████████████████` |
-| 400 | **92,15%** | `█████████████████████` |
+| 10 | 62.81% | `██████` |
+| 20 | 71.17% | `███████████` |
+| 50 | 81.17% | `████████████████` |
+| 100 | 87.37% | `███████████████████` |
+| 200 | 90.77% | `████████████████████` |
+| 400 | **92.15%** | `█████████████████████` |
 
-Vài điều rút ra:
+What this shows:
 
-- **K càng lớn càng chính xác, nhưng lợi ích giảm dần.** Từ 10 lên 50 cluster tăng gần 20 điểm phần trăm, còn từ 200 lên 400 chỉ tăng thêm khoảng 1,4 điểm.
-- **Không bị học vẹt rõ rệt.** Với K = 200, độ chính xác trên tập train là 90,04%, trên tập test là 90,77%, gần như bằng nhau.
-- **Độ thuần của cụm.** Với K = 200, trung bình 89,9% ảnh trong một cụm là cùng một chữ số.
-- **Chữ số khó có nhiều cụm hơn.** Với K = 200, số cluster được gán cho từng chữ số là:
+- **More clusters means higher accuracy, with diminishing returns.** Going from 10 to 50 clusters gains almost 20 percentage points; going from 200 to 400 gains only about 1.4.
+- **No clear overfitting.** With K = 200, accuracy is 90.04% on the training set and 90.77% on the test set, almost the same.
+- **Cluster purity.** With K = 200, on average 89.9% of the images in a cluster are the same digit.
+- **Harder digits get more clusters.** With K = 200, the number of clusters labeled as each digit is:
 
-  | Chữ số | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
+  | Digit | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
   |---|---|---|---|---|---|---|---|---|---|---|
-  | Số cluster | 23 | 10 | 30 | 23 | 17 | 21 | 21 | 15 | 20 | 20 |
+  | Clusters | 23 | 10 | 30 | 23 | 17 | 21 | 21 | 15 | 20 | 20 |
 
-  Số 2 có nhiều kiểu viết nhất (có vòng hoặc không có vòng ở dưới, nét cong hoặc gãy) nên chiếm 30 cluster. Số 1 đơn giản nên chỉ cần 10.
+  The digit 2 has the most writing styles (with or without a loop at the bottom, curved or angular), so it takes 30 clusters. The digit 1 is simple and needs only 10.
 
-- **Trường hợp cực đoan.** Nếu K = 60.000 (mỗi ảnh là một cụm riêng), K-means không còn "học" gì nữa mà thành **ghi nhớ toàn bộ dữ liệu**. Khi đó nó chính là thuật toán 1 láng giềng gần nhất (1-NN), đạt khoảng 97% trên MNIST theo bảng kết quả trên trang MNIST của Yann LeCun. Nhưng mỗi lần đoán phải so với 60.000 ảnh thay vì vài trăm centroid. K = 200 đến 400 là mức cân bằng tốt giữa độ chính xác, tốc độ và kích thước file.
+- **The extreme case.** With K = 60,000 (every image its own cluster), K-means no longer "learns" anything; it simply **memorizes the whole dataset**. At that point it is the 1-nearest-neighbor algorithm (1-NN), which reaches about 97% on MNIST according to the results table on Yann LeCun's MNIST page. But each prediction then compares against 60,000 images instead of a few hundred centroids. K = 200 to 400 is a good balance between accuracy, speed and file size.
 
-## Tại sao không dùng 10 cluster cho 10 chữ số?
+## Why not 10 clusters for 10 digits?
 
-Vì **K-means không biết gì về "chữ số"**. Nó chỉ gom các ảnh có điểm ảnh giống nhau. Hai số 4 viết khác kiểu có thể khác nhau về điểm ảnh còn nhiều hơn một số 4 và một số 9.
+Because **K-means knows nothing about "digits"**. It only groups images whose pixels look alike. Two 4s written in different styles can differ more, pixel by pixel, than a 4 and a 9.
 
-Chạy thử với K = 10, đây là thành phần thật bên trong một số cụm:
+Here is what some clusters actually contain when K = 10:
 
-| Cluster | Nhãn được gán | Thành phần thật bên trong |
+| Cluster | Label given | What is actually inside |
 |---|---|---|
-| 9 | 4 | 2.835 số **4**, 2.602 số **9**, 1.091 số 7 |
-| 5 | 9 | 2.703 số **9**, 2.586 số **4**, 491 số 7 |
-| 2 | 3 | 3.819 số 3, 1.756 số **5**, 1.010 số 8 |
-| 3 | 6 | 1.707 số 6, 1.278 số **5**, 1.217 số 0 |
-| 4 | 6 | 3.721 số 6, 140 số 0, 129 số 2 |
+| 9 | 4 | 2,835 **4**s, 2,602 **9**s, 1,091 7s |
+| 5 | 9 | 2,703 **9**s, 2,586 **4**s, 491 7s |
+| 2 | 3 | 3,819 3s, 1,756 **5**s, 1,010 8s |
+| 3 | 6 | 1,707 6s, 1,278 **5**s, 1,217 0s |
+| 4 | 6 | 3,721 6s, 140 0s, 129 2s |
 
-- **Số 4 và số 9 bị trộn gần như đều nhau**, vì về điểm ảnh chúng rất giống nhau.
-- **Hai cụm cùng được gán nhãn 6**, trong khi **số 5 không có cụm nào**. Nghĩa là chương trình không bao giờ đoán ra số 5.
-- Kết quả: chỉ đúng **62,81%**.
+- **4s and 9s are mixed almost evenly**, because their pixels are very similar.
+- **Two clusters are both labeled 6**, while **no cluster is labeled 5**. So the program can never answer 5.
+- Result: only **62.81%** correct.
 
-Lý do sâu hơn là **mỗi chữ số có nhiều kiểu viết**: số 1 thẳng hoặc nghiêng, số 7 có hoặc không có gạch ngang, số 4 nét trên mở hoặc kín. Centroid là **trung bình** của cụm. Nếu bắt một centroid đại diện cho mọi kiểu số 4, nó sẽ thành một hình mờ nhòe không giống kiểu nào. Khi có nhiều cluster, mỗi kiểu viết có centroid riêng. Bạn có thể thấy điều này trong phần "Các centroid mà K-means tìm ra" của bản web: mỗi hàng là một chữ số, mỗi ô là một kiểu viết.
+The deeper reason is that **every digit has several writing styles**: a 1 can be straight or slanted, a 7 can have a crossbar or not, a 4 can be open or closed at the top. A centroid is the **average** of its cluster. If one centroid has to stand for every style of 4, it becomes a blurry shape that looks like none of them. With more clusters, each style gets its own centroid. You can see this in the "centroids K-means found" section of the web version: each row is a digit, each tile a writing style.
 
-## Chuẩn hóa hình vẽ: chi tiết nhỏ nhưng quan trọng
+## Normalizing the drawing: a small detail that matters
 
-Ảnh MNIST được tạo theo một quy trình cố định: chữ số được thu vào khung 20×20 (giữ tỉ lệ), rồi đặt vào ảnh 28×28 sao cho **trọng tâm (center of mass)** nằm giữa ảnh. Hình người dùng vẽ thì có thể nhỏ, to hoặc lệch góc, nên cả hai giao diện đều chuẩn hóa hình vẽ theo đúng quy trình đó trước khi so với centroid:
+MNIST images were made with a fixed procedure: the digit is scaled to fit a 20×20 box (keeping its aspect ratio), then placed in a 28×28 image so that its **center of mass** sits in the middle. A person's drawing can be small, large or off to one side, so both interfaces normalize it the same way before comparing it with the centroids:
 
-1. Cắt sát nét vẽ.
-2. Thu vào khung 20×20, giữ tỉ lệ.
-3. Đặt vào ảnh 28×28 rồi dịch để trọng tâm nằm ở tọa độ **(14, 14)**.
+1. Crop tightly around the strokes.
+2. Scale to fit a 20×20 box, keeping the aspect ratio.
+3. Place it in a 28×28 image and shift it so the center of mass is at **(14, 14)**.
 
-Có một bài học thú vị ở bước 3. Ban đầu trọng tâm được đặt ở (13,5; 13,5), tức tâm hình học của lưới 28×28 tính theo chỉ số pixel. Chỉ lệch nửa ô như vậy mà độ chính xác trên 2.000 ảnh test tụt từ 87,65% xuống 82,6%. Đổi sang (14, 14) thì khớp lại hoàn toàn: đưa cả tập test qua bước chuẩn hóa vẫn đạt 90,78%, so với 90,77% trên ảnh gốc (K = 200). Với thuật toán so sánh từng điểm ảnh như K-means, lệch nửa pixel cũng đáng kể.
+Step 3 taught an interesting lesson. At first the center of mass was placed at (13.5, 13.5), the geometric center of the 28×28 grid in pixel-index terms. That half-pixel offset alone dropped accuracy on 2,000 test images from 87.65% to 82.6%. Switching to (14, 14) made it match exactly: running the whole test set through the normalization still gives 90.78%, versus 90.77% on the original images (K = 200). For an algorithm that compares images pixel by pixel, like K-means here, half a pixel matters.
 
-## Hai giao diện
+## Two interfaces
 
 ### Desktop: Tkinter (`digit_app.py`)
 
-- Bảng vẽ 28×28 ô. Chuột trái để vẽ, chuột phải để tẩy. Cọ đậm ở giữa và nhạt dần ra mép, giống nét chữ trong MNIST.
-- Nhả chuột là có đáp án, kèm ảnh sau chuẩn hóa, centroid gần nhất và 5 cụm gần nhất.
+- A 28×28 drawing board. Left mouse button draws, right button erases. The brush is dark in the middle and fades at the edges, like MNIST strokes.
+- Let go of the mouse to get the answer, along with the normalized image, the nearest centroid and the 5 nearest clusters. The interface text is in Vietnamese.
 
 ### Web: `web/index.html`
 
-- HTML, CSS và JavaScript thuần, tính toán ngay trong trình duyệt, chạy được khi không có mạng.
-- Nhận diện ngay khi đang vẽ (có thể tắt), dùng được với chuột, bút và cảm ứng.
-- Thanh khoảng cách tới từng chữ số 0–9: thấy được hình vẽ đang gần chữ số nào và "đối thủ" sát nhất là ai.
-- Bộ sưu tập toàn bộ centroid, xếp theo chữ số. Cụm khớp nhất được làm nổi bật.
-- Giao diện dùng [Sakuga VFX](https://github.com/finktheartist/sakuga-vfx): nút, tab, thanh trượt, công tắc và tooltip phản ứng như phim anime (nhún lò xo, khói, vụ nổ, chữ ドン!). Ô hiện đáp án là một thành phần tự viết theo cùng phong cách: nổ hiệu ứng mỗi khi đáp án thay đổi lúc nhả chuột. Hiệu ứng tự tắt nếu máy bật chế độ giảm chuyển động.
-- **Đã kiểm tra:** phần nhận diện bằng JavaScript cho kết quả trùng với bản Python trên cả 1.000/1.000 ảnh test thử, mỗi ảnh khoảng 0,3 ms. Centroid được lượng tử hóa về 1 byte/pixel để file nhỏ gọn. Trên 10.000 ảnh test, việc này chỉ làm đổi 3 dự đoán (92,15% còn 92,14%).
+- Plain HTML, CSS and JavaScript. Everything is computed in the browser, and it works offline.
+- Two languages: a **Tiếng Việt / English** switch at the top of the page. On the first visit the page follows the browser's language, then remembers the choice. A language can be opened directly with `?lang=en` or `?lang=vi` in the link.
+- Recognizes while you draw (can be turned off), and works with a mouse, a pen or touch.
+- Distance bars for each digit 0–9: see which digit your drawing is closest to, and which one is the runner-up.
+- A gallery of every centroid, grouped by digit. The closest cluster is highlighted.
+- The interface uses [Sakuga VFX](https://github.com/finktheartist/sakuga-vfx): buttons, tabs, a slider, a switch and a tooltip that react like anime (spring squash, smoke, impact bursts, ドン! lettering). The answer box is a custom component in the same style that fires an effect whenever the answer changes on release. Effects switch off when the device has reduced motion turned on.
+- **Checked:** the JavaScript recognizer gives the same answer as the Python version on all 1,000 of 1,000 test images tried, at about 0.3 ms per image. Centroids are quantized to 1 byte per pixel to keep the file small. On the 10,000 test images this changes only 3 predictions (92.15% becomes 92.14%).
 
-Phím tắt: `B` để vẽ, `E` để tẩy, `C` để xóa bảng.
+Keyboard shortcuts: `B` to draw, `E` to erase, `C` to clear the board.
 
-## Giới hạn
+## Limitations
 
-- **So sánh từng điểm ảnh.** Khoảng cách Euclid không hiểu hình dạng. Chữ số vẽ quá mảnh, quá đậm, bị xoay nghiêng hoặc theo kiểu lạ (ví dụ số 1 có chân đế, số 7 có gạch ngang ở giữa) có thể bị nhận sai.
-- **Phân biệt 4 và 9, 3 và 5** vẫn là điểm yếu, đúng như bảng phân tích K = 10 ở trên.
-- **Không phải một mô hình phân loại "thật sự".** Các phương pháp có giám sát (SVM, mạng nơ-ron tích chập) đạt trên 99% trên MNIST. Dự án này nhằm hiểu K-means, không nhằm đạt độ chính xác cao nhất.
-- Bản web mới được thử trên trình duyệt nhân Chromium. Theo tác giả Sakuga VFX, thư viện đó chưa được thử trên Safari và Firefox.
+- **Pixel-by-pixel comparison.** Euclidean distance does not understand shape. Digits drawn very thin, very thick, rotated, or in an unusual style (for example a 1 with a base, or a 7 with a crossbar) can be misread.
+- **Telling 4 from 9 and 3 from 5** is still a weak spot, as the K = 10 breakdown above shows.
+- **Not a "real" classifier.** Supervised methods (SVMs, convolutional neural networks) score above 99% on MNIST. This project is about understanding K-means, not about reaching the highest accuracy.
+- The web version has only been tried in Chromium-based browsers. According to its author, Sakuga VFX has not been tried in Safari or Firefox yet.
 
-## Nguồn và giấy phép
+## Credits and licenses
 
-- **Dữ liệu MNIST** của Yann LeCun, Corinna Cortes và Christopher J.C. Burges, phát hành theo giấy phép [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/).
-- **Sakuga VFX** của Justin Finkelman, giấy phép MIT. Bản sao giấy phép nằm ở [`web/sakuga/LICENSE`](web/sakuga/LICENSE).
+- **MNIST data** by Yann LeCun, Corinna Cortes and Christopher J.C. Burges, released under [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/).
+- **Sakuga VFX** by Justin Finkelman, MIT license. A copy of the license is in [`web/sakuga/LICENSE`](web/sakuga/LICENSE).
