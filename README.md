@@ -4,6 +4,8 @@ Dự án nhỏ ra đời từ một ý tưởng chợt nảy ra khi học **K-me
 
 Câu trả lời là **được**, và khá tốt: với 400 cluster, chương trình đoán đúng **92,15%** ảnh trong tập test MNIST, dù K-means là thuật toán **học không giám sát** và không hề biết "chữ số" là gì.
 
+**Dùng thử ngay trên trình duyệt:** https://nguyentientuanhcmus.github.io/kmeans-digit-recognition/
+
 ## Mục lục
 
 - [Ý tưởng](#ý-tưởng)
@@ -35,6 +37,7 @@ Như vậy K-means vẫn là học không giám sát: nó tự tìm ra các "ki�
 ├── export_web.py        Chuyển clusters.npz sang web/clusters.js cho bản web
 ├── clusters.npz         Kết quả đã huấn luyện sẵn (K = 400)
 ├── requirements.txt
+├── index.html           Chuyển hướng tới web/ (cho GitHub Pages)
 ├── MNIST/raw/*.gz       Dữ liệu MNIST (bản nén, chương trình đọc trực tiếp)
 ├── web/
 │   ├── index.html       Bản chạy trên trình duyệt
@@ -65,7 +68,7 @@ Với K = 200, việc huấn luyện mất khoảng 12 giây trên CPU, hội t�
 python digit_app.py
 ```
 
-**Giao diện web:** mở thẳng file `web/index.html` bằng trình duyệt, không cần server hay internet. Mỗi khi huấn luyện lại, chạy thêm lệnh sau để cập nhật dữ liệu cho bản web:
+**Giao diện web:** dùng bản [trên GitHub Pages](https://nguyentientuanhcmus.github.io/kmeans-digit-recognition/), hoặc mở thẳng file `web/index.html` bằng trình duyệt, không cần server hay internet. Mỗi khi huấn luyện lại, chạy thêm lệnh sau để cập nhật dữ liệu cho bản web:
 
 ```bash
 python export_web.py
