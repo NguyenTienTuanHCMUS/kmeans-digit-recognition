@@ -4,8 +4,6 @@ Dự án nhỏ ra đời từ một ý tưởng chợt nảy ra khi học **K-me
 
 Câu trả lời là **được**, và khá tốt: với 400 cluster, chương trình đoán đúng **92,15%** ảnh trong tập test MNIST, dù K-means là thuật toán **học không giám sát** và không hề biết "chữ số" là gì.
 
-![Giao diện web: vẽ số 7 và chương trình nhận ra số 7](docs/screenshot.jpg)
-
 ## Mục lục
 
 - [Ý tưởng](#ý-tưởng)
@@ -42,7 +40,6 @@ Như vậy K-means vẫn là học không giám sát: nó tự tìm ra các "ki�
 │   ├── index.html       Bản chạy trên trình duyệt
 │   ├── clusters.js      400 centroid đã lượng tử hóa, khoảng 414 KB
 │   └── sakuga/          Các thành phần giao diện Sakuga VFX (MIT)
-└── docs/screenshot.jpg
 ```
 
 ## Cài đặt và chạy
